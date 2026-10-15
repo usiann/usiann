@@ -246,14 +246,20 @@ header p {
     font-weight: bold;
 }
 
-/* 條列：小照片在左邊，資料在右邊 */
+/* 商品說明、賣家和上架日期：平常藏起來，只有條列會顯示 */
+.item-details,
+.item-extra {
+    display: none;
+}
+
+/* 條列：照片在左邊，詳細資料在右邊 */
 .view-list .item-card {
     display: flex;
     align-items: center;
 }
 
 .view-list .item-image {
-    width: 96px;
+    width: 130px;
     flex-shrink: 0;
 }
 
@@ -261,6 +267,26 @@ header p {
     flex: 1;
     min-width: 0;
     padding: 10px 16px;
+}
+
+/* 商品說明最多顯示兩行 */
+.view-list .item-details {
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+    margin: 6px 0 0;
+    color: #7A6F6A;
+    font-size: 13px;
+    line-height: 1.5;
+}
+
+.view-list .item-extra {
+    display: block;
+    margin: 4px 0 0;
+    color: #948780;
+    font-size: 12px;
 }
 
 /* 大圖：只顯示照片、名稱、價格 */
@@ -1130,7 +1156,7 @@ footer p {
     }
 
     .view-list .item-image {
-        width: 80px;
+        width: 100px;
     }
 }
 

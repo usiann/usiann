@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>usiann｜有啥？ 二手收藏分享</title>
-    <link rel="stylesheet" href="style.css?v=5">
+    <link rel="stylesheet" href="style.css?v=6">
 </head>
 
 <body>
@@ -237,7 +237,7 @@
 
             let query = db
                 .from("products")
-                .select("id, name, category, condition, price, images, is_sold", { count: "exact" })
+                .select("id, name, category, condition, price, description, images, is_sold, created_at, seller:profiles(nickname)", { count: "exact" })
                 .eq("status", "published");
 
             if (filters.category !== "all") {
@@ -349,7 +349,18 @@
             price.className = "item-price";
             price.textContent = "NT$ " + product.price.toLocaleString("zh-TW");
 
-            body.append(name, meta, price);
+            // 以下兩行只有「條列」會顯示
+            const details = document.createElement("p");
+            details.className = "item-details";
+            details.textContent = product.description || "賣家沒有填寫說明";
+
+            const extra = document.createElement("p");
+            extra.className = "item-extra";
+            extra.textContent =
+                "賣家：" + (product.seller ? product.seller.nickname : "—") +
+                "・上架 " + new Date(product.created_at).toLocaleDateString("zh-TW");
+
+            body.append(name, meta, price, details, extra);
             card.append(imageBox, body);
             return card;
         }
