@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>登入 / 註冊｜usiann</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- 網站標題（點了回首頁） -->
+    <header>
+        <h1><a href="index.html" class="home-link">usiann ⋆˚꩜｡</a></h1>
+        <p>有啥？</p>
+    </header>
+
+    <main class="form-page">
+        <div class="form-card">
+
+            <!-- 登入 / 註冊 切換 -->
+            <div class="tabs">
+                <button type="button" id="tab-login" class="tab active">登入</button>
+                <button type="button" id="tab-signup" class="tab">註冊</button>
+            </div>
+
+            <!-- 登入 -->
+            <form id="login-form">
+                <label>
+                    Email
+                    <input type="email" id="login-email" required autocomplete="email">
+                </label>
+                <label>
+                    密碼
+                    <input type="password" id="login-password" required autocomplete="current-password">
+                </label>
+                <button type="submit" class="primary-button">登入</button>
+                <button type="button" id="show-forgot" class="text-button">忘記密碼？</button>
+            </form>
+
+            <!-- 註冊 -->
+            <form id="signup-form" hidden>
+                <label>
+                    暱稱（其他人會看到，最多 20 個字）
+                    <input type="text" id="signup-nickname" required maxlength="20">
+                </label>
+                <label>
+                    Email
+                    <input type="email" id="signup-email" required autocomplete="email">
+                </label>
+                <label>
+                    密碼（至少 8 個字）
+                    <input type="password" id="signup-password" required minlength="8" autocomplete="new-password">
+                </label>
+                <label>
+                    再輸入一次密碼
+                    <input type="password" id="signup-password-again" required minlength="8" autocomplete="new-password">
+                </label>
+                <label class="checkbox-label">
+                    <input type="checkbox" id="signup-agree" required>
+                    我同意使用規範：不販售仿冒品，不刊登不實資訊。違規的商品會被下架，帳號可能被停權。
+                </label>
+                <button type="submit" class="primary-button">註冊</button>
+            </form>
+
+            <!-- 忘記密碼 -->
+            <form id="forgot-form" hidden>
+                <p class="form-hint">輸入註冊時用的 email，我們會寄一封重設密碼的信給你。</p>
+                <label>
+                    Email
+                    <input type="email" id="forgot-email" required autocomplete="email">
+                </label>
+                <button type="submit" class="primary-button">寄送重設密碼信</button>
+                <button type="button" id="back-to-login" class="text-button">回到登入</button>
+            </form>
+
+            <!-- 成功或錯誤訊息 -->
+            <p id="form-message" class="form-message" hidden></p>
+
+            <!-- Google 登入 -->
+            <div class="divider"><span>或</span></div>
+            <button type="button" id="google-button" class="google-button">使用 Google 帳號登入</button>
+            <p class="form-hint">第一次用 Google 登入會自動建立帳號，並表示你同意使用規範。</p>
+
+        </div>
+    </main>
+
+    <footer>
+        <p>♡ usiann・二手收藏分享 ♡</p>
+    </footer>
+
+    <!-- Supabase 工具（固定版本，避免它自己更新後網站壞掉） -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+    <script src="common.js"></script>
+
+    <script>
+        const loginForm = document.getElementById("login-form");
+        const signupForm = document.getElementById("signup-form");
+        const forgotForm = document.getElementById("forgot-form");
+        const tabLogin = document.getElementById("tab-login");
+        const tabSignup = document.getElementById("tab-signup");
+        const message = document.getElementById("form-message");
+
+        // 切換要顯示哪一個表單：login / signup / forgot
+        function showForm(name) {
+            loginForm.hidden = name !== "login";
+            signupForm.hidden = name !== "signup";
+            forgotForm.hidden = name !== "forgot";
+            tabLogin.classList.toggle("active", name !== "signup");
+            tabSignup.classList.toggle("active", name === "signup");
+            message.hidden = true;
+        }
+
+        tabLogin.addEventListener("click", function() { showForm("login"); });
+        tabSignup.addEventListener("click", function() { showForm("signup"); });
+        document.getElementById("show-forgot").addEventListener("click", function() { showForm("forgot"); });
+        document.getElementById("back-to-login").addEventListener("click", function() { showForm("login"); });
+
+        // 送出時把按鈕暫時關掉，避免按很多次
+        function setBusy(form, busy) {
+            form.querySelector(".primary-button").disabled = busy;
+        }
+
+        // 已經登入的人直接到「我的帳號」
+        getCurrentUser().then(function(user) {
+            if (user) {
+                window.location.href = "account.html";
+            }
+        });
+
+        // 驗證連結過期時，Supabase 會在網址後面加上錯誤
+        if (window.location.hash.includes("error_code=otp_expired")) {
+            showMessage(message, "驗證連結已經過期了，請重新登入或註冊一次", "error");
+        }
+
+
+        // ===== 登入 =====
+        loginForm.addEventListener("submit", async function(event) {
+            event.preventDefault();
+            setBusy(loginForm, true);
+
+            const { error } = await db.auth.signInWithPassword({
+                email: document.getElementById("login-email").value.trim(),
+                password: document.getElementById("login-password").value
+            });
+
+            setBusy(loginForm, false);
+
+            if (error) {
+                showMessage(message, translateError(error), "error");
+                return;
+            }
+
+            window.location.href = "index.html";
+        });
+
+
+        // ===== 註冊 =====
+        signupForm.addEventListener("submit", async function(event) {
+            event.preventDefault();
+
+            const nickname = document.getElementById("signup-nickname").value.trim();
+            const email = document.getElementById("signup-email").value.trim();
+            const password = document.getElementById("signup-password").value;
+            const passwordAgain = document.getElementById("signup-password-again").value;
+
+            if (nickname === "") {
+                showMessage(message, "請填寫暱稱", "error");
+                return;
+            }
+            if (password !== passwordAgain) {
+                showMessage(message, "兩次輸入的密碼不一樣", "error");
+                return;
+            }
+
+            setBusy(signupForm, true);
+
+            const { data, error } = await db.auth.signUp({
+                email: email,
+                password: password,
+                options: {
+                    // 暱稱會被資料庫拿去建立會員資料
+                    data: { nickname: nickname },
+                    // 點驗證信的連結後，會跳到「我的帳號」
+                    emailRedirectTo: SITE_BASE + "account.html"
+                }
+            });
+
+            setBusy(signupForm, false);
+
+            if (error) {
+                showMessage(message, translateError(error), "error");
+                return;
+            }
+
+            // 用已經註冊過的 email 再註冊一次時，Supabase 不會回傳錯誤，
+            // 而是回傳一個沒有登入方式的帳號，所以要另外判斷
+            if (data.user && data.user.identities && data.user.identities.length === 0) {
+                showMessage(message, "這個 email 已經註冊過了，請直接登入", "error");
+                return;
+            }
+
+            signupForm.reset();
+            showMessage(
+                message,
+                "註冊成功！我們寄了一封驗證信到 " + email +
+                "，點信裡的連結就完成了 ♡（沒收到的話，看看垃圾郵件）",
+                "success"
+            );
+        });
+
+
+        // ===== 忘記密碼 =====
+        forgotForm.addEventListener("submit", async function(event) {
+            event.preventDefault();
+            setBusy(forgotForm, true);
+
+            const email = document.getElementById("forgot-email").value.trim();
+            const { error } = await db.auth.resetPasswordForEmail(email, {
+                redirectTo: SITE_BASE + "reset-password.html"
+            });
+
+            setBusy(forgotForm, false);
+
+            if (error) {
+                showMessage(message, translateError(error), "error");
+                return;
+            }
+
+            showMessage(
+                message,
+                "如果這個 email 有註冊過，你很快會收到重設密碼的信 ♡",
+                "success"
+            );
+        });
+
+
+        // ===== Google 登入 =====
+        document.getElementById("google-button").addEventListener("click", async function() {
+            const { error } = await db.auth.signInWithOAuth({
+                provider: "google",
+                options: {
+                    // 登入完成後回到首頁
+                    redirectTo: SITE_BASE + "index.html"
+                }
+            });
+
+            if (error) {
+                showMessage(message, translateError(error), "error");
+            }
+        });
+    </script>
+
+</body>
+</html>

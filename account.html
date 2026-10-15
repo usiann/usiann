@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的帳號｜usiann</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- 網站標題（點了回首頁） -->
+    <header>
+        <h1><a href="index.html" class="home-link">usiann ⋆˚꩜｡</a></h1>
+        <p>有啥？</p>
+    </header>
+
+    <main class="form-page">
+
+        <!-- 讀取中 -->
+        <p id="loading" class="form-hint">讀取中…</p>
+
+        <div id="account-card" class="form-card" hidden>
+            <h2>我的帳號</h2>
+
+            <!-- 被停權時顯示 -->
+            <p id="banned-notice" class="form-message error" hidden>
+                你的帳號已被停權，目前無法上架商品。
+            </p>
+
+            <!-- 暱稱 -->
+            <form id="nickname-form">
+                <label>
+                    暱稱（其他人會看到，最多 20 個字）
+                    <input type="text" id="nickname" required maxlength="20">
+                </label>
+                <button type="submit" class="primary-button">儲存暱稱</button>
+            </form>
+
+            <p id="form-message" class="form-message" hidden></p>
+
+            <!-- 帳號資訊 -->
+            <dl class="account-info">
+                <dt>Email</dt>
+                <dd id="email"></dd>
+
+                <dt>賣家等級</dt>
+                <dd>
+                    <span id="seller-level"></span>
+                    <span id="admin-badge" class="badge" hidden>管理員</span>
+                </dd>
+            </dl>
+
+            <!-- 升級說明 -->
+            <p id="level-hint" class="level-hint"></p>
+
+            <button type="button" id="logout-button" class="secondary-button">登出</button>
+        </div>
+
+    </main>
+
+    <footer>
+        <p>♡ usiann・二手收藏分享 ♡</p>
+    </footer>
+
+    <!-- Supabase 工具（固定版本，避免它自己更新後網站壞掉） -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+    <script src="common.js"></script>
+
+    <script>
+        const message = document.getElementById("form-message");
+
+        async function loadAccount() {
+            const user = await getCurrentUser();
+
+            // 沒有登入就到登入頁
+            // （驗證連結過期時，把錯誤一起帶過去，讓登入頁顯示提醒）
+            if (!user) {
+                window.location.href = "login.html" + window.location.hash;
+                return;
+            }
+
+            const profile = await getMyProfile();
+            if (!profile) {
+                document.getElementById("loading").textContent =
+                    "讀取會員資料失敗，請重新整理頁面";
+                return;
+            }
+
+            document.getElementById("nickname").value = profile.nickname;
+            document.getElementById("email").textContent = user.email;
+            document.getElementById("banned-notice").hidden = !profile.is_banned;
+            document.getElementById("admin-badge").hidden = !profile.is_admin;
+
+            const levelText = document.getElementById("seller-level");
+            const levelHint = document.getElementById("level-hint");
+
+            if (profile.seller_level === "trusted") {
+                levelText.textContent = "🌷 信任賣家";
+                levelHint.textContent = "你上架的商品會直接公開，不用等審核 ♡";
+            } else {
+                levelText.textContent = "🌱 新手賣家";
+
+                const remaining = Math.max(
+                    0,
+                    TRUSTED_APPROVALS_NEEDED - profile.approved_count
+                );
+
+                if (profile.violation_count > 0) {
+                    levelHint.textContent =
+                        "因為有違規紀錄，目前無法自動升級。上架的商品需要審核後才會公開。";
+                } else {
+                    levelHint.textContent =
+                        "上架的商品需要審核後才會公開。再通過 " + remaining +
+                        " 件商品審核，就能升級為信任賣家，之後上架免審核 ♡";
+                }
+            }
+
+            document.getElementById("loading").hidden = true;
+            document.getElementById("account-card").hidden = false;
+        }
+
+        loadAccount();
+
+
+        // ===== 儲存暱稱 =====
+        document.getElementById("nickname-form").addEventListener("submit", async function(event) {
+            event.preventDefault();
+
+            const nickname = document.getElementById("nickname").value.trim();
+            if (nickname === "") {
+                showMessage(message, "請填寫暱稱", "error");
+                return;
+            }
+
+            const user = await getCurrentUser();
+            const { error } = await db
+                .from("profiles")
+                .update({ nickname: nickname })
+                .eq("id", user.id);
+
+            if (error) {
+                showMessage(message, translateError(error), "error");
+                return;
+            }
+
+            showMessage(message, "暱稱已儲存 ♡", "success");
+        });
+
+
+        // ===== 登出 =====
+        document.getElementById("logout-button").addEventListener("click", async function() {
+            await db.auth.signOut();
+            window.location.href = "index.html";
+        });
+    </script>
+
+</body>
+</html>

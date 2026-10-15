@@ -12,6 +12,9 @@
 
     <!-- 網站標題 -->
     <header>
+        <!-- 會員選單：由 common.js 自動顯示「登入 / 註冊」或「我的帳號」 -->
+        <div id="user-menu" class="user-menu"></div>
+
         <h1>usiann ⋆˚꩜｡</h1>
         <p>有啥？</p>
         <p>讓喜歡的收藏找到新主人 ♡</p>
@@ -142,6 +145,10 @@
             </p>
         </div>
     </footer>
+
+    <!-- Supabase 工具（固定版本，避免它自己更新後網站壞掉） -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+    <script src="common.js"></script>
 
     <!-- JavaScript 功能 -->
     <script>

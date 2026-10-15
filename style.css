@@ -322,6 +322,269 @@ footer p {
     line-height: 1.8;
 }
 
+/* ===== 會員功能 ===== */
+
+/* 加上 hidden 的東西一定要藏起來 */
+[hidden] {
+    display: none !important;
+}
+
+/* 頁面右上角的會員選單 */
+.user-menu {
+    display: flex;
+    justify-content: flex-end;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    min-height: 24px;
+    margin: -15px 0 10px;
+    font-size: 13px;
+    color: #948780;
+}
+
+.user-menu a {
+    color: #805463;
+    text-decoration: none;
+    padding: 4px 12px;
+    border-radius: 20px;
+    background-color: #F6E3E8;
+}
+
+.user-menu a:hover {
+    background-color: #EECBD5;
+}
+
+/* 標題變成回首頁的連結時，保持原本的樣子 */
+.home-link {
+    color: inherit;
+    text-decoration: none;
+}
+
+/* 登入、註冊等表單頁 */
+.form-page {
+    padding: 20px;
+}
+
+.form-card {
+    max-width: 400px;
+    margin: 0 auto;
+    padding: 28px;
+    background-color: #FFFFFF;
+    border: 1px solid #F0E5E2;
+    border-radius: 16px;
+    box-shadow: 0 3px 12px rgba(81, 74, 70, 0.04);
+}
+
+.form-card h2 {
+    margin: 0 0 18px;
+    font-size: 21px;
+    font-weight: 600;
+    text-align: center;
+}
+
+.form-card form {
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+}
+
+.form-card label {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 14px;
+}
+
+.form-card input[type="text"],
+.form-card input[type="email"],
+.form-card input[type="password"] {
+    padding: 11px 14px;
+    border: 1px solid #E8DCD7;
+    border-radius: 12px;
+    background-color: #FFFDF8;
+    color: #514A46;
+    font-size: 14px;
+}
+
+.form-card input:focus {
+    outline: 2px solid #F0D8E0;
+    border-color: #D9A4B3;
+}
+
+.checkbox-label {
+    flex-direction: row !important;
+    align-items: flex-start;
+    color: #948780;
+    font-size: 13px !important;
+    line-height: 1.6;
+}
+
+.checkbox-label input {
+    margin-top: 4px;
+    flex-shrink: 0;
+}
+
+/* 登入、註冊切換 */
+.tabs {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 20px;
+    padding: 4px;
+    border-radius: 25px;
+    background-color: #FFF8F5;
+}
+
+.tab {
+    flex: 1;
+    padding: 9px;
+    border: none;
+    border-radius: 20px;
+    background: transparent;
+    color: #948780;
+    font-size: 15px;
+    cursor: pointer;
+}
+
+.tab.active {
+    background-color: #F6E3E8;
+    color: #805463;
+}
+
+/* 表單按鈕 */
+.primary-button,
+.secondary-button,
+.google-button {
+    width: 100%;
+    padding: 12px;
+    border-radius: 25px;
+    font-size: 15px;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.primary-button {
+    border: none;
+    background-color: #F6E3E8;
+    color: #805463;
+}
+
+.primary-button:hover {
+    background-color: #EECBD5;
+}
+
+.primary-button:disabled {
+    opacity: 0.6;
+    cursor: wait;
+}
+
+.secondary-button,
+.google-button {
+    border: 1px solid #E8DCD7;
+    background-color: #FFFFFF;
+    color: #514A46;
+}
+
+.secondary-button:hover,
+.google-button:hover {
+    background-color: #FFF8F5;
+}
+
+.secondary-button {
+    margin-top: 20px;
+}
+
+.text-button {
+    border: none;
+    background: transparent;
+    color: #948780;
+    font-size: 13px;
+    text-decoration: underline;
+    cursor: pointer;
+}
+
+.text-button:hover {
+    color: #B86F85;
+}
+
+/* 「或」分隔線 */
+.divider {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin: 22px 0 16px;
+    color: #948780;
+    font-size: 13px;
+}
+
+.divider::before,
+.divider::after {
+    content: "";
+    flex: 1;
+    border-top: 1px solid #F0E5E2;
+}
+
+/* 小字說明 */
+.form-hint {
+    margin: 10px 0 0;
+    color: #948780;
+    font-size: 13px;
+    text-align: center;
+}
+
+/* 成功、錯誤訊息 */
+.form-message {
+    margin: 16px 0 0;
+    padding: 10px 14px;
+    border-radius: 12px;
+    font-size: 14px;
+}
+
+.form-message.error {
+    background-color: #FBEAEE;
+    color: #A0475F;
+}
+
+.form-message.success {
+    background-color: #EAF5EC;
+    color: #3F7A4D;
+}
+
+/* 我的帳號：帳號資訊 */
+.account-info {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    gap: 8px 16px;
+    margin: 22px 0 0;
+    font-size: 14px;
+}
+
+.account-info dt {
+    color: #948780;
+}
+
+.account-info dd {
+    margin: 0;
+    word-break: break-all;
+}
+
+.badge {
+    margin-left: 6px;
+    padding: 2px 10px;
+    border-radius: 20px;
+    background-color: #F6E3E8;
+    color: #805463;
+    font-size: 12px;
+}
+
+.level-hint {
+    margin: 12px 0 0;
+    padding: 12px 14px;
+    border-radius: 12px;
+    background-color: #FFF8F5;
+    color: #805463;
+    font-size: 13px;
+}
+
 /* ===== 手機版調整 ===== */
 @media (max-width: 600px) {
     header {
