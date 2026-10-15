@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>usiann｜有啥？ 二手收藏分享</title>
-    <link rel="stylesheet" href="style.css?v=6">
+    <link rel="stylesheet" href="style.css?v=7">
 </head>
 
 <body>
@@ -60,7 +60,7 @@
         <div id="product-grid" class="item-grid view-medium"></div>
 
         <p id="loading" class="no-results">讀取中…</p>
-        <p id="no-results" class="no-results" hidden>找不到相關商品，試試其他關鍵字吧 ♡</p>
+        <p id="no-results" class="no-results" hidden></p>
 
         <button type="button" id="load-more" class="load-more" hidden>載入更多</button>
 
@@ -87,11 +87,10 @@
     <!-- Supabase 工具（固定版本，避免它自己更新後網站壞掉） -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
     <script src="common.js?v=5"></script>
+    <!-- 商品列表共用程式（商品卡片、顯示方式、載入更多） -->
+    <script src="product-list.js?v=1"></script>
 
     <script>
-        // 一次載入幾件商品
-        const PAGE_SIZE = 24;
-
         // 目前的搜尋和篩選條件
         const filters = {
             keyword: "",
@@ -100,14 +99,45 @@
             sort: "newest"
         };
 
-        // 已經載入幾件
-        let loadedCount = 0;
-        // 每次讀取都編一個號碼，只顯示最新那次的結果
-        // （避免快速切換分類時，舊的結果蓋掉新的）
-        let latestRequest = 0;
-
         const grid = document.getElementById("product-grid");
-        const loadMoreButton = document.getElementById("load-more");
+        setupViewSwitch(grid);
+
+        // 讀商品的工具（詳細說明在 product-list.js）
+        const loader = createProductLoader({
+            grid: grid,
+            loadMoreButton: document.getElementById("load-more"),
+            loading: document.getElementById("loading"),
+            noResults: document.getElementById("no-results"),
+            emptyText: "找不到相關商品，試試其他關鍵字吧 ♡",
+
+            // 首頁的篩選條件：角色、商品狀況、關鍵字
+            applyFilters: function(query) {
+                if (filters.category !== "all") {
+                    query = query.eq("category", filters.category);
+                }
+                if (filters.condition) {
+                    query = query.eq("condition", filters.condition);
+                }
+
+                // 關鍵字：在名稱和說明裡找
+                // 先拿掉會讓搜尋出錯的特殊符號
+                const keyword = filters.keyword.replace(/[%_,()*\\:"'.]/g, " ").trim();
+                if (keyword) {
+                    query = query.or(
+                        "name.ilike.%" + keyword + "%,description.ilike.%" + keyword + "%"
+                    );
+                }
+                return query;
+            },
+
+            getSort: function() {
+                return filters.sort;
+            },
+
+            onCount: function(total) {
+                document.getElementById("result-count").textContent = "共 " + total + " 件商品";
+            }
+        });
 
 
         // =====================================================
@@ -124,7 +154,7 @@
             button.addEventListener("click", function() {
                 filters.category = category.id;
                 updateCategoryButtons();
-                loadProducts(true);
+                loader.load(true);
             });
             nav.appendChild(button);
         });
@@ -153,46 +183,13 @@
 
         conditionFilter.addEventListener("change", function() {
             filters.condition = conditionFilter.value;
-            loadProducts(true);
+            loader.load(true);
         });
 
         document.getElementById("sort-select").addEventListener("change", function(event) {
             filters.sort = event.target.value;
-            loadProducts(true);
+            loader.load(true);
         });
-
-
-        // =====================================================
-        // 顯示方式：中圖 / 條列 / 大圖（會記住買家上次的選擇）
-        // =====================================================
-        const VIEW_STORAGE_KEY = "usiann-view";
-        const viewButtons = document.querySelectorAll(".view-switch button");
-
-        function setView(view) {
-            grid.className = "item-grid view-" + view;
-            viewButtons.forEach(function(button) {
-                button.classList.toggle("active", button.dataset.view === view);
-            });
-            try {
-                localStorage.setItem(VIEW_STORAGE_KEY, view);
-            } catch (error) {
-                // 瀏覽器不讓存也沒關係，下次就用預設的中圖
-            }
-        }
-
-        viewButtons.forEach(function(button) {
-            button.addEventListener("click", function() {
-                setView(button.dataset.view);
-            });
-        });
-
-        let savedView = "medium";
-        try {
-            savedView = localStorage.getItem(VIEW_STORAGE_KEY) || "medium";
-        } catch (error) {
-            // 同上
-        }
-        setView(["medium", "list", "large"].includes(savedView) ? savedView : "medium");
 
 
         // =====================================================
@@ -201,7 +198,7 @@
         document.getElementById("search-form").addEventListener("submit", function(event) {
             event.preventDefault();
             filters.keyword = document.getElementById("search-input").value.trim();
-            loadProducts(true);
+            loader.load(true);
         });
 
         // 「全部商品」：清掉所有搜尋和篩選
@@ -214,156 +211,12 @@
             filters.condition = "";
             filters.sort = "newest";
             updateCategoryButtons();
-            loadProducts(true);
+            loader.load(true);
         });
 
 
-        // =====================================================
-        // 從資料庫讀商品
-        // reset = true：重新開始（換了搜尋或篩選）
-        // reset = false：接著載入下一批（按「載入更多」）
-        // =====================================================
-        async function loadProducts(reset) {
-            if (reset) {
-                loadedCount = 0;
-                grid.textContent = "";
-                document.getElementById("loading").hidden = false;
-                document.getElementById("no-results").hidden = true;
-            }
-
-            const thisRequest = ++latestRequest;
-            loadMoreButton.disabled = true;
-            loadMoreButton.textContent = "讀取中…";
-
-            let query = db
-                .from("products")
-                .select("id, name, category, condition, price, description, images, is_sold, created_at, seller:profiles(nickname)", { count: "exact" })
-                .eq("status", "published");
-
-            if (filters.category !== "all") {
-                query = query.eq("category", filters.category);
-            }
-            if (filters.condition) {
-                query = query.eq("condition", filters.condition);
-            }
-
-            // 關鍵字：在名稱和說明裡找
-            // 先拿掉會讓搜尋出錯的特殊符號
-            const keyword = filters.keyword.replace(/[%_,()*\\:"'.]/g, " ").trim();
-            if (keyword) {
-                query = query.or(
-                    "name.ilike.%" + keyword + "%,description.ilike.%" + keyword + "%"
-                );
-            }
-
-            // 已售出的排在後面
-            query = query.order("is_sold", { ascending: true });
-
-            if (filters.sort === "price-asc") {
-                query = query.order("price", { ascending: true });
-            } else if (filters.sort === "price-desc") {
-                query = query.order("price", { ascending: false });
-            }
-            query = query
-                .order("created_at", { ascending: false })
-                .order("id", { ascending: true })
-                .range(loadedCount, loadedCount + PAGE_SIZE - 1);
-
-            const { data, error, count } = await query;
-
-            // 讀取期間又換了條件，這次的結果就不要了
-            if (thisRequest !== latestRequest) {
-                return;
-            }
-
-            document.getElementById("loading").hidden = true;
-            loadMoreButton.disabled = false;
-            loadMoreButton.textContent = "載入更多";
-
-            if (error) {
-                const noResults = document.getElementById("no-results");
-                noResults.textContent = translateError(error);
-                noResults.hidden = false;
-                loadMoreButton.hidden = true;
-                return;
-            }
-
-            data.forEach(function(product) {
-                grid.appendChild(makeCard(product));
-            });
-            loadedCount += data.length;
-
-            const total = count || 0;
-            document.getElementById("result-count").textContent = "共 " + total + " 件商品";
-
-            const noResults = document.getElementById("no-results");
-            noResults.textContent = "找不到相關商品，試試其他關鍵字吧 ♡";
-            noResults.hidden = total > 0;
-
-            // 還有沒載入的商品，才顯示「載入更多」
-            loadMoreButton.hidden = loadedCount >= total;
-        }
-
-        loadMoreButton.addEventListener("click", function() {
-            loadProducts(false);
-        });
-
-        loadProducts(true);
-
-
-        // 做出一張商品卡片（點了到商品頁）
-        function makeCard(product) {
-            const card = document.createElement("a");
-            card.className = "item-card" + (product.is_sold ? " sold" : "");
-            card.href = "product.html?id=" + product.id;
-
-            const imageBox = document.createElement("div");
-            imageBox.className = "item-image";
-
-            const img = document.createElement("img");
-            img.src = getImageUrl(product.images[0]);
-            img.alt = product.name;
-            img.loading = "lazy";
-            imageBox.appendChild(img);
-
-            if (product.is_sold) {
-                const overlay = document.createElement("div");
-                overlay.className = "sold-overlay";
-                overlay.setAttribute("role", "img");
-                overlay.setAttribute("aria-label", "已售出");
-                imageBox.appendChild(overlay);
-            }
-
-            const body = document.createElement("div");
-            body.className = "item-body";
-
-            const name = document.createElement("h3");
-            name.className = "item-name";
-            name.textContent = product.name;
-
-            const meta = document.createElement("p");
-            meta.className = "item-meta";
-            meta.textContent = getCategoryName(product.category) + "・" + product.condition;
-
-            const price = document.createElement("p");
-            price.className = "item-price";
-            price.textContent = "NT$ " + product.price.toLocaleString("zh-TW");
-
-            // 以下兩行只有「條列」會顯示
-            const details = document.createElement("p");
-            details.className = "item-details";
-            details.textContent = product.description || "賣家沒有填寫說明";
-
-            const extra = document.createElement("p");
-            extra.className = "item-extra";
-            extra.textContent =
-                "賣家：" + (product.seller ? product.seller.nickname : "—") +
-                "・上架 " + new Date(product.created_at).toLocaleDateString("zh-TW");
-
-            body.append(name, meta, price, details, extra);
-            card.append(imageBox, body);
-            return card;
-        }
+        // 開始讀商品
+        loader.load(true);
     </script>
 
 </body>

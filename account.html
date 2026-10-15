@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>我的帳號｜usiann</title>
-    <link rel="stylesheet" href="style.css?v=5">
+    <link rel="stylesheet" href="style.css?v=7">
 </head>
 
 <body>
@@ -29,13 +29,18 @@
                 你的帳號已被停權，目前無法上架商品。
             </p>
 
-            <!-- 暱稱 -->
+            <!-- 暱稱和自我介紹 -->
             <form id="nickname-form">
                 <label>
                     暱稱（其他人會看到，最多 20 個字）
                     <input type="text" id="nickname" required maxlength="20">
                 </label>
-                <button type="submit" class="primary-button">儲存暱稱</button>
+                <label>
+                    自我介紹（會顯示在你的賣家頁，最多 200 個字，可以不寫）
+                    <textarea id="bio" rows="4" maxlength="200"
+                        placeholder="例如：收藏酷洛米 10 年，出清重複的周邊～全部都是日本帶回的正版 ♡"></textarea>
+                </label>
+                <button type="submit" class="primary-button">儲存</button>
             </form>
 
             <p id="form-message" class="form-message" hidden></p>
@@ -54,6 +59,9 @@
 
             <!-- 升級說明 -->
             <p id="level-hint" class="level-hint"></p>
+
+            <!-- 我的賣家頁（別人看到的樣子） -->
+            <a id="my-seller-link" class="secondary-button seller-page-button" href="#">查看我的賣家頁</a>
 
             <button type="button" id="logout-button" class="secondary-button">登出</button>
         </div>
@@ -89,6 +97,15 @@
             }
 
             document.getElementById("nickname").value = profile.nickname;
+            document.getElementById("my-seller-link").href = "seller.html?id=" + user.id;
+
+            // 自我介紹
+            const { data: bioData } = await db
+                .from("profiles")
+                .select("bio")
+                .eq("id", user.id)
+                .maybeSingle();
+            document.getElementById("bio").value = bioData ? bioData.bio : "";
             document.getElementById("email").textContent = user.email;
             document.getElementById("banned-notice").hidden = !profile.is_banned;
             document.getElementById("admin-badge").hidden = !profile.is_admin;
@@ -137,7 +154,10 @@
             const user = await getCurrentUser();
             const { error } = await db
                 .from("profiles")
-                .update({ nickname: nickname })
+                .update({
+                    nickname: nickname,
+                    bio: document.getElementById("bio").value.trim()
+                })
                 .eq("id", user.id);
 
             if (error) {
@@ -145,7 +165,7 @@
                 return;
             }
 
-            showMessage(message, "暱稱已儲存 ♡", "success");
+            showMessage(message, "已儲存 ♡", "success");
         });
 
 

@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>商品｜usiann</title>
-    <link rel="stylesheet" href="style.css?v=5">
+    <link rel="stylesheet" href="style.css?v=7">
 </head>
 
 <body>
@@ -114,7 +114,7 @@
             if (productId) {
                 const { data } = await db
                     .from("products")
-                    .select("id, name, category, condition, price, description, link, images, status, is_sold, created_at, seller:profiles(nickname, seller_level)")
+                    .select("id, name, category, condition, price, description, link, images, status, is_sold, created_at, seller_id, seller:profiles(nickname, seller_level)")
                     .eq("id", productId)
                     .maybeSingle();
                 product = data;
@@ -180,10 +180,17 @@
             document.getElementById("product-description").textContent =
                 product.description || "賣家沒有填寫說明";
 
+            // 賣家：名字可以點，點了到賣家頁
             const seller = product.seller;
-            document.getElementById("product-seller").textContent =
-                "賣家：" + (seller ? seller.nickname : "—") +
-                (seller && seller.seller_level === "trusted" ? "（🌷 信任賣家）" : "");
+            const sellerLine = document.getElementById("product-seller");
+            const sellerLink = document.createElement("a");
+            sellerLink.href = "seller.html?id=" + product.seller_id;
+            sellerLink.className = "seller-link";
+            sellerLink.textContent = seller ? seller.nickname : "查看賣家";
+            sellerLine.append("賣家：", sellerLink);
+            if (seller && seller.seller_level === "trusted") {
+                sellerLine.append("（🌷 信任賣家）");
+            }
             document.getElementById("product-date").textContent =
                 "上架日期：" + new Date(product.created_at).toLocaleDateString("zh-TW");
 

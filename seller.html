@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>賣家｜usiann</title>
+    <link rel="stylesheet" href="style.css?v=7">
+</head>
+
+<body>
+
+    <!-- 網站標題（點了回首頁） -->
+    <header>
+        <div id="user-menu" class="user-menu"></div>
+        <h1><a href="index.html" class="home-link">usiann ⋆˚꩜｡</a></h1>
+        <p>有啥？</p>
+    </header>
+
+    <main class="shop">
+
+        <p id="page-loading" class="no-results">讀取中…</p>
+        <p id="not-found" class="no-results" hidden>找不到這位賣家 ♡</p>
+
+        <div id="seller-page" hidden>
+
+            <!-- 賣家資料 -->
+            <div class="seller-card">
+                <h2>
+                    <span id="seller-name"></span>
+                    <span id="seller-badge" class="badge" hidden>🌷 信任賣家</span>
+                </h2>
+                <p id="seller-joined" class="seller-meta"></p>
+                <p id="seller-stats" class="seller-meta"></p>
+                <p id="seller-bio" class="seller-bio" hidden></p>
+
+                <button type="button" id="share-button" class="small-button">分享這個賣家</button>
+                <p id="share-message" class="form-message" hidden></p>
+            </div>
+
+            <!-- 顯示方式 -->
+            <div class="toolbar">
+                <p class="result-count">賣家的商品</p>
+                <div class="view-switch" role="group" aria-label="顯示方式">
+                    <button type="button" data-view="medium">中圖</button>
+                    <button type="button" data-view="list">條列</button>
+                    <button type="button" data-view="large">大圖</button>
+                </div>
+            </div>
+
+            <!-- 商品列表 -->
+            <div id="product-grid" class="item-grid view-medium"></div>
+
+            <p id="loading" class="no-results">讀取中…</p>
+            <p id="no-results" class="no-results" hidden></p>
+
+            <button type="button" id="load-more" class="load-more" hidden>載入更多</button>
+        </div>
+
+    </main>
+
+    <footer>
+        <p>♡ usiann・二手收藏分享 ♡</p>
+
+        <!-- 免責聲明 -->
+        <div class="disclaimer">
+            <p>
+                本網站僅提供二手商品資訊的刊登與曝光，
+                不參與買賣雙方的交易，包含付款、物流、商品品質與真偽保證。
+            </p>
+            <p>
+                商品皆由賣家自行刊登，如發現仿冒品或可疑商品，
+                歡迎點選商品頁中的「檢舉此商品」告訴我們 ♡
+            </p>
+        </div>
+    </footer>
+
+    <!-- Supabase 工具（固定版本，避免它自己更新後網站壞掉） -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+    <script src="common.js?v=5"></script>
+    <!-- 商品列表共用程式（商品卡片、顯示方式、載入更多） -->
+    <script src="product-list.js?v=1"></script>
+
+    <script>
+        // 網址是 seller.html?id=賣家的編號
+        const sellerId = new URLSearchParams(window.location.search).get("id");
+
+        async function loadSeller() {
+            let seller = null;
+            if (sellerId) {
+                const { data } = await db
+                    .from("profiles")
+                    .select("id, nickname, seller_level, bio, created_at")
+                    .eq("id", sellerId)
+                    .maybeSingle();
+                seller = data;
+            }
+
+            document.getElementById("page-loading").hidden = true;
+
+            if (!seller) {
+                document.getElementById("not-found").hidden = false;
+                return;
+            }
+
+            document.title = seller.nickname + " 的賣場｜usiann";
+            document.getElementById("seller-name").textContent = seller.nickname;
+            document.getElementById("seller-badge").hidden = seller.seller_level !== "trusted";
+
+            // 加入時間，例如「2026年10月加入」
+            const joined = new Date(seller.created_at);
+            document.getElementById("seller-joined").textContent =
+                joined.getFullYear() + "年" + (joined.getMonth() + 1) + "月加入";
+
+            if (seller.bio) {
+                const bio = document.getElementById("seller-bio");
+                bio.textContent = seller.bio;
+                bio.hidden = false;
+            }
+
+            document.getElementById("seller-page").hidden = false;
+
+            loadStats();
+
+            // 賣家的商品
+            const grid = document.getElementById("product-grid");
+            setupViewSwitch(grid);
+
+            const loader = createProductLoader({
+                grid: grid,
+                loadMoreButton: document.getElementById("load-more"),
+                loading: document.getElementById("loading"),
+                noResults: document.getElementById("no-results"),
+                emptyText: "這位賣家目前還沒有商品 ♡",
+                applyFilters: function(query) {
+                    return query.eq("seller_id", sellerId);
+                }
+            });
+            loader.load(true);
+        }
+
+        // 販售中、已售出各幾件
+        async function loadStats() {
+            function countProducts(isSold) {
+                return db
+                    .from("products")
+                    .select("id", { count: "exact", head: true })
+                    .eq("seller_id", sellerId)
+                    .eq("status", "published")
+                    .eq("is_sold", isSold);
+            }
+
+            const results = await Promise.all([countProducts(false), countProducts(true)]);
+            document.getElementById("seller-stats").textContent =
+                "販售中 " + (results[0].count || 0) + " 件・已售出 " + (results[1].count || 0) + " 件";
+        }
+
+        loadSeller();
+
+
+        // ===== 分享 =====
+        // 手機：打開手機內建的分享選單
+        // 電腦：直接複製網址
+        document.getElementById("share-button").addEventListener("click", async function() {
+            const shareMessage = document.getElementById("share-message");
+            const url = window.location.href;
+
+            if (navigator.share) {
+                try {
+                    await navigator.share({ title: document.title, url: url });
+                } catch (error) {
+                    // 使用者自己取消分享，不用處理
+                }
+                return;
+            }
+
+            try {
+                await navigator.clipboard.writeText(url);
+                showMessage(shareMessage, "已複製賣家頁網址，可以貼給朋友了 ♡", "success");
+            } catch (error) {
+                showMessage(shareMessage, "複製失敗，請直接複製瀏覽器上方的網址", "error");
+            }
+        });
+    </script>
+
+</body>
+</html>

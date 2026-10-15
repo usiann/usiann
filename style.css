@@ -1015,6 +1015,56 @@ footer p {
     color: #A0475F !important;
 }
 
+/* ===== 賣家頁 ===== */
+.seller-card {
+    margin-bottom: 26px;
+    padding: 24px;
+    background-color: #FFFFFF;
+    border: 1px solid #F0E5E2;
+    border-radius: 16px;
+    text-align: center;
+}
+
+.seller-card h2 {
+    margin: 0 0 6px;
+    font-size: 23px;
+    font-weight: 600;
+}
+
+.seller-meta {
+    margin: 2px 0;
+    color: #948780;
+    font-size: 13px;
+}
+
+/* 自我介紹 */
+.seller-bio {
+    max-width: 520px;
+    margin: 14px auto 16px;
+    padding: 12px 16px;
+    border-radius: 12px;
+    background-color: #FFF8F5;
+    font-size: 14px;
+    text-align: left;
+    white-space: pre-wrap;
+}
+
+.seller-card .small-button {
+    margin-top: 14px;
+}
+
+/* 商品頁上的賣家名字 */
+.seller-link {
+    color: #B86F85;
+}
+
+/* 我的帳號：「查看我的賣家頁」按鈕 */
+.seller-page-button {
+    display: block;
+    text-align: center;
+    text-decoration: none;
+}
+
 /* ===== 管理頁 ===== */
 .admin-page {
     max-width: 760px;
