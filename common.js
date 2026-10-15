@@ -178,6 +178,14 @@ async function renderUserMenu() {
     accountLink.textContent = "我的帳號";
 
     menu.append(greeting, sellLink, myProductsLink, accountLink);
+
+    // 管理員才看得到「管理頁」
+    if (profile && profile.is_admin) {
+        const adminLink = document.createElement("a");
+        adminLink.href = "admin.html";
+        adminLink.textContent = "管理頁";
+        menu.appendChild(adminLink);
+    }
 }
 
 renderUserMenu();

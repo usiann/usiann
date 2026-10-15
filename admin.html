@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>管理頁｜usiann</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- 網站標題（點了回首頁） -->
+    <header>
+        <div id="user-menu" class="user-menu"></div>
+        <h1><a href="index.html" class="home-link">usiann ⋆˚꩜｡</a></h1>
+        <p>有啥？</p>
+    </header>
+
+    <main class="form-page">
+        <div class="admin-page">
+
+            <p id="loading" class="form-hint">讀取中…</p>
+            <p id="page-message" class="form-message" hidden></p>
+
+            <div id="admin-content" hidden>
+
+                <!-- ===== 等待審核的商品 ===== -->
+                <section class="admin-section">
+                    <h2 id="pending-title">等待審核的商品</h2>
+                    <p id="pending-empty" class="empty-hint" hidden>目前沒有等待審核的商品 ♡</p>
+                    <div id="pending-list"></div>
+                </section>
+
+                <!-- ===== 賣家管理 ===== -->
+                <section class="admin-section">
+                    <h2>賣家管理</h2>
+                    <form id="seller-search" class="admin-search">
+                        <input type="text" id="seller-keyword" placeholder="輸入暱稱或 email 搜尋（空白會列出最新的 50 位）">
+                        <button type="submit" class="small-button">搜尋</button>
+                    </form>
+                    <div id="seller-list"></div>
+                </section>
+
+            </div>
+        </div>
+    </main>
+
+    <footer>
+        <p>♡ usiann・二手收藏分享 ♡</p>
+    </footer>
+
+    <!-- Supabase 工具（固定版本，避免它自己更新後網站壞掉） -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+    <script src="common.js"></script>
+
+    <script>
+        // 退回時可以直接點選的原因
+        // 想新增或修改原因，改這裡就好
+        const REJECT_REASONS = [
+            "照片不清楚或不是實品",
+            "疑似仿冒品",
+            "商品資訊不完整",
+            "賣貨便連結有問題",
+            "不符合使用規範"
+        ];
+
+        const pageMessage = document.getElementById("page-message");
+        let currentUser = null;
+
+
+        // ===== 開始：先確認是管理員 =====
+        async function init() {
+            currentUser = await requireLogin();
+            if (!currentUser) {
+                return;
+            }
+
+            const profile = await getMyProfile();
+            document.getElementById("loading").hidden = true;
+
+            // 不是管理員就什麼都不顯示
+            // （就算有人改了這裡的程式，資料庫也不會讓他審核）
+            if (!profile || !profile.is_admin) {
+                showMessage(pageMessage, "這一頁只有管理員可以使用", "error");
+                return;
+            }
+
+            document.getElementById("admin-content").hidden = false;
+            loadPending();
+            loadSellers("");
+        }
+
+        init();
+
+
+        // =====================================================
+        // 等待審核的商品
+        // =====================================================
+        async function loadPending() {
+            const { data, error } = await db
+                .from("products")
+                .select("id, name, category, condition, price, description, link, images, created_at, seller:profiles(nickname, seller_level)")
+                .eq("status", "pending")
+                .order("created_at", { ascending: true });
+
+            if (error) {
+                showMessage(pageMessage, translateError(error), "error");
+                return;
+            }
+
+            document.getElementById("pending-title").textContent =
+                "等待審核的商品（" + data.length + " 件）";
+            document.getElementById("pending-empty").hidden = data.length > 0;
+
+            const list = document.getElementById("pending-list");
+            list.textContent = "";
+            data.forEach(function(product) {
+                list.appendChild(makeReviewCard(product));
+            });
+        }
+
+        // 做出一張審核卡片
+        function makeReviewCard(product) {
+            const card = document.createElement("div");
+            card.className = "review-card";
+
+            // 所有照片（點了用新分頁看大圖）
+            const gallery = document.createElement("div");
+            gallery.className = "review-photos";
+            product.images.forEach(function(path, index) {
+                const link = document.createElement("a");
+                link.href = getImageUrl(path);
+                link.target = "_blank";
+                link.rel = "noopener noreferrer";
+
+                const img = document.createElement("img");
+                img.src = getImageUrl(path);
+                img.alt = product.name + " 照片 " + (index + 1);
+
+                link.appendChild(img);
+                gallery.appendChild(link);
+            });
+
+            const name = document.createElement("h3");
+            name.textContent = product.name;
+
+            const details = document.createElement("dl");
+            details.className = "account-info";
+            addDetail(details, "賣家",
+                (product.seller ? product.seller.nickname : "？") + "（" +
+                (product.seller && product.seller.seller_level === "trusted" ? "🌷 信任賣家" : "🌱 新手賣家") + "）");
+            addDetail(details, "角色分類", getCategoryName(product.category));
+            addDetail(details, "商品狀況", product.condition);
+            addDetail(details, "價格", "NT$ " + product.price);
+            addDetail(details, "送出時間", new Date(product.created_at).toLocaleString("zh-TW"));
+
+            // 賣貨便連結（點了用新分頁打開，確認賣場是真的）
+            const linkDt = document.createElement("dt");
+            linkDt.textContent = "賣貨便";
+            const linkDd = document.createElement("dd");
+            const shopLink = document.createElement("a");
+            shopLink.href = product.link;
+            shopLink.target = "_blank";
+            shopLink.rel = "noopener noreferrer";
+            shopLink.textContent = product.link;
+            linkDd.appendChild(shopLink);
+            details.append(linkDt, linkDd);
+
+            const description = document.createElement("p");
+            description.className = "review-description";
+            description.textContent = product.description || "（沒有填寫說明）";
+
+            // 審核按鈕
+            const actions = document.createElement("div");
+            actions.className = "product-row-actions";
+
+            const approveButton = document.createElement("button");
+            approveButton.type = "button";
+            approveButton.className = "small-button";
+            approveButton.textContent = "✅ 通過";
+
+            const rejectButton = document.createElement("button");
+            rejectButton.type = "button";
+            rejectButton.className = "small-button danger";
+            rejectButton.textContent = "❌ 退回";
+
+            actions.append(approveButton, rejectButton);
+
+            // 退回原因（按「退回」才會出現）
+            const rejectBox = document.createElement("div");
+            rejectBox.className = "reject-box";
+            rejectBox.hidden = true;
+
+            const reasonSelect = document.createElement("select");
+            REJECT_REASONS.forEach(function(reason) {
+                reasonSelect.add(new Option(reason, reason));
+            });
+            reasonSelect.add(new Option("其他（自己寫）", "其他"));
+
+            const reasonInput = document.createElement("input");
+            reasonInput.type = "text";
+            reasonInput.maxLength = 200;
+            reasonInput.placeholder = "補充說明（選「其他」時一定要寫）";
+
+            const confirmReject = document.createElement("button");
+            confirmReject.type = "button";
+            confirmReject.className = "small-button danger";
+            confirmReject.textContent = "確定退回";
+
+            rejectBox.append(reasonSelect, reasonInput, confirmReject);
+
+            const cardMessage = document.createElement("p");
+            cardMessage.className = "form-message";
+            cardMessage.hidden = true;
+
+            approveButton.addEventListener("click", function() {
+                review(product, true, null, card, cardMessage);
+            });
+
+            rejectButton.addEventListener("click", function() {
+                rejectBox.hidden = !rejectBox.hidden;
+            });
+
+            confirmReject.addEventListener("click", function() {
+                const extra = reasonInput.value.trim();
+                let reason;
+                if (reasonSelect.value === "其他") {
+                    if (extra === "") {
+                        showMessage(cardMessage, "選「其他」時，請寫下退回的原因", "error");
+                        return;
+                    }
+                    reason = extra;
+                } else {
+                    reason = extra ? reasonSelect.value + "：" + extra : reasonSelect.value;
+                }
+                review(product, false, reason, card, cardMessage);
+            });
+
+            card.append(gallery, name, details, description, actions, rejectBox, cardMessage);
+            return card;
+        }
+
+        function addDetail(list, label, value) {
+            const dt = document.createElement("dt");
+            dt.textContent = label;
+            const dd = document.createElement("dd");
+            dd.textContent = value;
+            list.append(dt, dd);
+        }
+
+        // 送出審核結果
+        async function review(product, approve, reason, card, cardMessage) {
+            card.querySelectorAll("button").forEach(function(button) {
+                button.disabled = true;
+            });
+
+            const { error } = await db.rpc("admin_review_product", {
+                target_id: product.id,
+                approve: approve,
+                reason: reason
+            });
+
+            if (error) {
+                card.querySelectorAll("button").forEach(function(button) {
+                    button.disabled = false;
+                });
+                showMessage(cardMessage, translateError(error), "error");
+                return;
+            }
+
+            showMessage(
+                pageMessage,
+                (approve ? "已通過「" : "已退回「") + product.name + "」",
+                "success"
+            );
+            loadPending();
+            loadSellers(document.getElementById("seller-keyword").value);
+        }
+
+
+        // =====================================================
+        // 賣家管理
+        // =====================================================
+        document.getElementById("seller-search").addEventListener("submit", function(event) {
+            event.preventDefault();
+            loadSellers(document.getElementById("seller-keyword").value);
+        });
+
+        async function loadSellers(keyword) {
+            const { data, error } = await db.rpc("admin_list_sellers", {
+                search: keyword.trim()
+            });
+
+            const list = document.getElementById("seller-list");
+            list.textContent = "";
+
+            if (error) {
+                showMessage(pageMessage, translateError(error), "error");
+                return;
+            }
+
+            if (data.length === 0) {
+                const empty = document.createElement("p");
+                empty.className = "empty-hint";
+                empty.textContent = "找不到符合的賣家";
+                list.appendChild(empty);
+                return;
+            }
+
+            data.forEach(function(seller) {
+                list.appendChild(makeSellerRow(seller));
+            });
+        }
+
+        function makeSellerRow(seller) {
+            const row = document.createElement("div");
+            row.className = "product-row";
+
+            const info = document.createElement("div");
+            info.className = "product-row-info";
+
+            const name = document.createElement("h3");
+            name.textContent = seller.nickname + (seller.is_admin ? "（管理員）" : "");
+
+            const email = document.createElement("p");
+            email.textContent = seller.email;
+
+            const level = document.createElement("p");
+            level.className = "status";
+            level.textContent =
+                (seller.seller_level === "trusted" ? "🌷 信任賣家" : "🌱 新手賣家") +
+                "・通過審核 " + seller.approved_count + " 件" +
+                "・違規 " + seller.violation_count + " 次" +
+                (seller.is_banned ? "・🚫 已停權" : "");
+
+            info.append(name, email, level);
+
+            const actions = document.createElement("div");
+            actions.className = "product-row-actions";
+
+            const levelButton = document.createElement("button");
+            levelButton.type = "button";
+            levelButton.className = "small-button";
+            const isTrusted = seller.seller_level === "trusted";
+            levelButton.textContent = isTrusted ? "降回新手賣家" : "升級為信任賣家";
+            levelButton.addEventListener("click", async function() {
+                levelButton.disabled = true;
+                const { error } = await db.rpc("admin_set_seller_level", {
+                    target_id: seller.id,
+                    new_level: isTrusted ? "new" : "trusted"
+                });
+                if (error) {
+                    levelButton.disabled = false;
+                    showMessage(pageMessage, translateError(error), "error");
+                    return;
+                }
+                showMessage(pageMessage, "已調整「" + seller.nickname + "」的等級", "success");
+                loadSellers(document.getElementById("seller-keyword").value);
+            });
+            actions.appendChild(levelButton);
+
+            row.append(info, actions);
+            return row;
+        }
+    </script>
+
+</body>
+</html>
