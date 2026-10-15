@@ -1,11 +1,10 @@
-
 <!DOCTYPE html>
 <html lang="zh-Hant">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>usiann｜有啥？ 二手收藏分享</title>
-    <link rel="stylesheet" href="style.css?v=4">
+    <link rel="stylesheet" href="style.css?v=5">
 </head>
 
 <body>
@@ -21,112 +20,51 @@
     </header>
 
     <!-- 搜尋欄 -->
-    <div class="search-box">
+    <form id="search-form" class="search-box">
         <input
             type="text"
             id="search-input"
             placeholder="搜尋你喜歡的三麗鷗商品 ♡"
         >
-        <button onclick="searchProducts()">搜尋</button>
-        <button onclick="resetSearch()">全部商品</button>
-    </div>
+        <button type="submit">搜尋</button>
+        <button type="button" id="reset-button">全部商品</button>
+    </form>
 
-    <!-- 角色分類導覽列 -->
-    <nav>
-        <a href="#hello-kitty">Hello Kitty</a>
-        <a href="#pompompurin">布丁狗</a>
-        <a href="#cinnamoroll">大耳狗</a>
-        <a href="#usahana">花小兔</a>
-        <a href="#kuromi">酷洛米</a>
-    </nav>
+    <!-- 角色分類按鈕：由下方程式自動產生 -->
+    <nav id="category-nav" class="category-nav"></nav>
 
-    <main>
+    <main class="shop">
 
-        <!-- Hello Kitty -->
-        <section id="hello-kitty">
-            <h2>Hello Kitty</h2>
-            <p class="section-description">Hello Kitty 的媽咪請進 ♡</p>
+        <!-- 篩選、排序、顯示方式 -->
+        <div class="toolbar">
+            <p id="result-count" class="result-count"></p>
 
-            <!-- 商品卡片會由下方程式自動放進這裡，不用手動寫 -->
-            <div class="product-list"></div>
-        </section>
+            <select id="condition-filter" aria-label="商品狀況">
+                <option value="">全部狀況</option>
+            </select>
 
-        <!-- 布丁狗 -->
-        <section id="pompompurin">
-            <h2>布丁狗</h2>
-            <p class="section-description">布丁狗的媽咪請進 ♡</p>
+            <select id="sort-select" aria-label="排序方式">
+                <option value="newest">最新上架</option>
+                <option value="price-asc">價格低到高</option>
+                <option value="price-desc">價格高到低</option>
+            </select>
 
-            <div class="product-list"></div>
-        </section>
+            <div class="view-switch" role="group" aria-label="顯示方式">
+                <button type="button" data-view="medium">中圖</button>
+                <button type="button" data-view="list">條列</button>
+                <button type="button" data-view="large">大圖</button>
+            </div>
+        </div>
 
-        <!-- 大耳狗 -->
-        <section id="cinnamoroll">
-            <h2>大耳狗</h2>
-            <p class="section-description">大耳狗的媽咪請進 ♡</p>
+        <!-- 商品列表：由下方程式自動放進來 -->
+        <div id="product-grid" class="item-grid view-medium"></div>
 
-            <div class="product-list"></div>
-        </section>
+        <p id="loading" class="no-results">讀取中…</p>
+        <p id="no-results" class="no-results" hidden>找不到相關商品，試試其他關鍵字吧 ♡</p>
 
-        <!-- 花小兔 -->
-        <section id="usahana">
-            <h2>花小兔</h2>
-            <p class="section-description">花小兔的媽咪請進 ♡</p>
-
-            <div class="product-list"></div>
-        </section>
-
-        <!-- 酷洛米 -->
-        <section id="kuromi">
-            <h2>酷洛米</h2>
-            <p class="section-description">酷洛米的媽咪請進 ♡</p>
-
-            <div class="product-list"></div>
-        </section>
-
-        <!-- 沒有搜尋結果時顯示 -->
-        <p id="no-results" class="no-results">
-            找不到相關商品，試試其他關鍵字吧 ♡
-        </p>
+        <button type="button" id="load-more" class="load-more" hidden>載入更多</button>
 
     </main>
-
-    <!-- 商品詳細資訊視窗 -->
-    <div id="product-detail" class="product-detail">
-        <div class="detail-content">
-            <button
-                class="close-button"
-                onclick="closeProduct()"
-                aria-label="關閉商品資訊"
-            >✕</button>
-
-            <div id="detail-image" class="detail-image">🎀</div>
-            <h2 id="detail-name">商品名稱</h2>
-            <p id="detail-condition">商品狀況</p>
-            <p id="detail-price" class="detail-price">NT$ 0</p>
-            <p id="detail-description">商品介紹</p>
-
-            <!-- 前往賣貨便購買：連結會由程式自動換成商品清單裡的 link -->
-            <!-- target="_blank" 表示用新分頁打開 -->
-            <!-- rel="noopener noreferrer" 讓打開的外部網站不能動到我們的網頁，比較安全 -->
-            <a
-                id="detail-buy"
-                class="buy-button"
-                href="#"
-                target="_blank"
-                rel="noopener noreferrer"
-            >前往賣貨便購買</a>
-
-            <!-- 檢舉此商品：用新分頁打開 Google 表單，商品名稱會自動填好 -->
-            <!-- 表單連結在下方程式的 REPORT_FORM_URL 設定 -->
-            <a
-                id="detail-report"
-                class="report-button"
-                href="#"
-                target="_blank"
-                rel="noopener noreferrer"
-            >檢舉此商品</a>
-        </div>
-    </div>
 
     <!-- 網站底部 -->
     <footer>
@@ -148,260 +86,273 @@
 
     <!-- Supabase 工具（固定版本，避免它自己更新後網站壞掉） -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-    <script src="common.js?v=4"></script>
+    <script src="common.js?v=5"></script>
 
-    <!-- JavaScript 功能 -->
     <script>
-        // 檢舉用的 Google 表單
-        // REPORT_FORM_URL       表單的網址（結尾是 /viewform）
-        // REPORT_PRODUCT_FIELD  表單裡「商品名稱」那一題的編號
-        // 如果之後換了一份新表單，這兩行都要一起換
-        const REPORT_FORM_URL =
-            "https://docs.google.com/forms/d/e/1FAIpQLSc74mJIX9Z_eLvbN6GgOveEIRzdeXaxrDfwr66ULdOg87pzIQ/viewform";
-        const REPORT_PRODUCT_FIELD = "entry.308041687";
+        // 一次載入幾件商品
+        const PAGE_SIZE = 24;
 
-        // =========================================================
-        // ♡ 商品清單 ♡
-        // 所有商品都寫在這裡，網頁會照著這份清單自動做出商品卡片。
-        //
-        // 【要新增商品時】
-        // 1. 複製下面任何一筆 { ... }, （從 { 到 }, 整段）
-        // 2. 貼在最後一筆的後面（ ]; 的上面）
-        // 3. 把內容換成新商品的資料
-        //
-        // 【每個欄位的意思】
-        // name        商品名稱
-        // category    角色分類，只能填下面這 5 種之一（要一字不差）：
-        //             "hello-kitty"     → Hello Kitty
-        //             "pompompurin"     → 布丁狗
-        //             "cinnamoroll"     → 大耳狗
-        //             "usahana"         → 花小兔
-        //             "kuromi"          → 酷洛米
-        // icon        商品圖示（一個 emoji）
-        // condition   商品狀況，例如 "保存良好"、"近全新"
-        // price       價格，只填數字，不要加 NT$ 或逗號，例如 250
-        // description 商品說明
-        // link        賣家的賣貨便連結
-        //
-        // 【小提醒】
-        // - 文字要放在英文的雙引號 " " 裡面
-        // - 每一行最後的英文逗號 , 不要漏掉
-        // - 改完存檔，再到瀏覽器按 F5 重新整理就能看到
-        // =========================================================
-        const products = [
-            {
-                name: "Hello Kitty 可愛娃娃",
-                category: "hello-kitty",
-                icon: "🎀",
-                condition: "保存良好",
-                price: 250,
-                description: "可愛的 Hello Kitty 娃娃，適合收藏或送禮 ♡",
-                // ⚠️ 這是假的連結，之後請換成真的賣貨便連結
-                link: "https://example.com/換成真的賣貨便連結"
-            },
-            {
-                name: "布丁狗造型玩偶",
-                category: "pompompurin",
-                icon: "🍮",
-                condition: "保存良好",
-                price: 180,
-                description: "療癒的布丁狗造型玩偶 ♡",
-                // ⚠️ 這是假的連結，之後請換成真的賣貨便連結
-                link: "https://example.com/換成真的賣貨便連結"
-            },
-            {
-                name: "大耳狗雲朵娃娃",
-                category: "cinnamoroll",
-                icon: "☁️",
-                condition: "近全新",
-                price: 220,
-                description: "像雲朵一樣柔軟可愛的大耳狗娃娃 ♡",
-                // ⚠️ 這是假的連結，之後請換成真的賣貨便連結
-                link: "https://example.com/換成真的賣貨便連結"
-            },
-            {
-                name: "花小兔粉色玩偶",
-                category: "usahana",
-                icon: "🌸",
-                condition: "保存良好",
-                price: 200,
-                description: "粉嫩可愛的花小兔玩偶 ♡",
-                // ⚠️ 這是假的連結，之後請換成真的賣貨便連結
-                link: "https://example.com/換成真的賣貨便連結"
-            },
-            {
-                name: "酷洛米紫色玩偶",
-                category: "kuromi",
-                icon: "💜",
-                condition: "保存良好",
-                price: 280,
-                description: "酷洛米風格的紫色收藏玩偶 ♡",
-                // ⚠️ 這是假的連結，之後請換成真的賣貨便連結
-                link: "https://example.com/換成真的賣貨便連結"
-            },
-        ];
-        // ===== 商品清單到這裡結束，下面的程式不需要改 =====
+        // 目前的搜尋和篩選條件
+        const filters = {
+            keyword: "",
+            category: "all",
+            condition: "",
+            sort: "newest"
+        };
+
+        // 已經載入幾件
+        let loadedCount = 0;
+        // 每次讀取都編一個號碼，只顯示最新那次的結果
+        // （避免快速切換分類時，舊的結果蓋掉新的）
+        let latestRequest = 0;
+
+        const grid = document.getElementById("product-grid");
+        const loadMoreButton = document.getElementById("load-more");
 
 
-        // 照著商品清單，把每個商品做成卡片，放進對應的角色分類
-        function renderProducts() {
-            products.forEach(function(product) {
-                const list = document.querySelector(
-                    "#" + product.category + " .product-list"
-                );
+        // =====================================================
+        // 角色分類按鈕
+        // =====================================================
+        const nav = document.getElementById("category-nav");
+        const navItems = [{ id: "all", name: "全部" }].concat(CATEGORIES);
 
-                // 分類名稱打錯時，在瀏覽器的開發者工具顯示提醒
-                if (!list) {
-                    console.warn(
-                        "找不到角色分類「" + product.category + "」，" +
-                        "請檢查商品「" + product.name + "」的 category"
-                    );
-                    return;
-                }
-
-                const card = document.createElement("div");
-                card.className = "product-card";
-
-                const image = document.createElement("div");
-                image.className = "product-image";
-                image.textContent = product.icon;
-
-                const name = document.createElement("h3");
-                name.textContent = product.name;
-
-                const condition = document.createElement("p");
-                condition.textContent = "商品狀況：" + product.condition;
-
-                const price = document.createElement("p");
-                price.className = "price";
-                price.textContent = "NT$ " + product.price;
-
-                const button = document.createElement("button");
-                button.textContent = "查看商品";
-                button.addEventListener("click", function() {
-                    showProduct(product);
-                });
-
-                card.append(image, name, condition, price, button);
-                list.appendChild(card);
+        navItems.forEach(function(category) {
+            const button = document.createElement("button");
+            button.type = "button";
+            button.dataset.category = category.id;
+            button.textContent = category.name;
+            button.addEventListener("click", function() {
+                filters.category = category.id;
+                updateCategoryButtons();
+                loadProducts(true);
             });
-        }
-
-        renderProducts();
-
-        // 商品搜尋
-        function searchProducts() {
-            const keyword = document
-                .getElementById("search-input")
-                .value.trim()
-                .toLowerCase();
-
-            const cards = document.querySelectorAll(".product-card");
-            const sections = document.querySelectorAll("main section");
-            const noResults = document.getElementById("no-results");
-
-            let found = 0;
-
-            cards.forEach(function(card) {
-                const cardText = card.textContent.toLowerCase();
-                const isMatch = cardText.includes(keyword);
-
-                card.style.display = isMatch ? "" : "none";
-
-                if (isMatch) {
-                    found++;
-                }
-            });
-
-            sections.forEach(function(section) {
-                const visibleProducts = section.querySelectorAll(
-                    ".product-card"
-                );
-
-                const hasVisibleProduct = Array.from(visibleProducts).some(
-                    function(product) {
-                        return product.style.display !== "none";
-                    }
-                );
-
-                section.style.display = hasVisibleProduct ? "" : "none";
-            });
-
-            noResults.style.display = found === 0 ? "block" : "none";
-        }
-
-        // 按 Enter 也可以搜尋
-        document.getElementById("search-input").addEventListener(
-            "keydown",
-            function(event) {
-                if (event.key === "Enter") {
-                    searchProducts();
-                }
-            }
-        );
-
-        // 恢復顯示所有商品
-        function resetSearch() {
-            document.getElementById("search-input").value = "";
-
-            document.querySelectorAll(".product-card").forEach(
-                function(product) {
-                    product.style.display = "";
-                }
-            );
-
-            document.querySelectorAll("main section").forEach(
-                function(section) {
-                    section.style.display = "";
-                }
-            );
-
-            document.getElementById("no-results").style.display = "none";
-        }
-
-        // 開啟商品詳細資訊
-        function showProduct(product) {
-            document.getElementById("detail-name").textContent = product.name;
-            document.getElementById("detail-image").textContent = product.icon;
-            document.getElementById("detail-condition").textContent =
-                "商品狀況：" + product.condition;
-            document.getElementById("detail-price").textContent =
-                "NT$ " + product.price;
-            document.getElementById("detail-description").textContent =
-                product.description;
-            document.getElementById("detail-buy").href = product.link;
-
-            // 檢舉表單的連結，會自動把這個商品的名稱填進「商品名稱」那一題
-            // encodeURIComponent 會把中文和空白轉成網址看得懂的格式
-            document.getElementById("detail-report").href =
-                REPORT_FORM_URL +
-                "?usp=pp_url&" + REPORT_PRODUCT_FIELD + "=" +
-                encodeURIComponent(product.name);
-
-            document.getElementById("product-detail").style.display = "flex";
-        }
-
-        // 關閉商品詳細資訊
-        function closeProduct() {
-            document.getElementById("product-detail").style.display = "none";
-        }
-
-        // 點擊視窗外部也可以關閉
-        document.getElementById("product-detail").addEventListener(
-            "click",
-            function(event) {
-                if (event.target === this) {
-                    closeProduct();
-                }
-            }
-        );
-
-        // 按 Escape 鍵關閉視窗
-        document.addEventListener("keydown", function(event) {
-            if (event.key === "Escape") {
-                closeProduct();
-            }
+            nav.appendChild(button);
         });
+
+        function updateCategoryButtons() {
+            nav.querySelectorAll("button").forEach(function(button) {
+                button.classList.toggle("active", button.dataset.category === filters.category);
+            });
+        }
+
+        // 從商品頁點角色標籤過來時（網址是 index.html?category=kuromi），直接選好那個角色
+        const categoryFromUrl = new URLSearchParams(window.location.search).get("category");
+        if (CATEGORIES.some(function(c) { return c.id === categoryFromUrl; })) {
+            filters.category = categoryFromUrl;
+        }
+        updateCategoryButtons();
+
+
+        // =====================================================
+        // 商品狀況、排序
+        // =====================================================
+        const conditionFilter = document.getElementById("condition-filter");
+        CONDITIONS.forEach(function(condition) {
+            conditionFilter.add(new Option(condition, condition));
+        });
+
+        conditionFilter.addEventListener("change", function() {
+            filters.condition = conditionFilter.value;
+            loadProducts(true);
+        });
+
+        document.getElementById("sort-select").addEventListener("change", function(event) {
+            filters.sort = event.target.value;
+            loadProducts(true);
+        });
+
+
+        // =====================================================
+        // 顯示方式：中圖 / 條列 / 大圖（會記住買家上次的選擇）
+        // =====================================================
+        const VIEW_STORAGE_KEY = "usiann-view";
+        const viewButtons = document.querySelectorAll(".view-switch button");
+
+        function setView(view) {
+            grid.className = "item-grid view-" + view;
+            viewButtons.forEach(function(button) {
+                button.classList.toggle("active", button.dataset.view === view);
+            });
+            try {
+                localStorage.setItem(VIEW_STORAGE_KEY, view);
+            } catch (error) {
+                // 瀏覽器不讓存也沒關係，下次就用預設的中圖
+            }
+        }
+
+        viewButtons.forEach(function(button) {
+            button.addEventListener("click", function() {
+                setView(button.dataset.view);
+            });
+        });
+
+        let savedView = "medium";
+        try {
+            savedView = localStorage.getItem(VIEW_STORAGE_KEY) || "medium";
+        } catch (error) {
+            // 同上
+        }
+        setView(["medium", "list", "large"].includes(savedView) ? savedView : "medium");
+
+
+        // =====================================================
+        // 搜尋
+        // =====================================================
+        document.getElementById("search-form").addEventListener("submit", function(event) {
+            event.preventDefault();
+            filters.keyword = document.getElementById("search-input").value.trim();
+            loadProducts(true);
+        });
+
+        // 「全部商品」：清掉所有搜尋和篩選
+        document.getElementById("reset-button").addEventListener("click", function() {
+            document.getElementById("search-input").value = "";
+            conditionFilter.value = "";
+            document.getElementById("sort-select").value = "newest";
+            filters.keyword = "";
+            filters.category = "all";
+            filters.condition = "";
+            filters.sort = "newest";
+            updateCategoryButtons();
+            loadProducts(true);
+        });
+
+
+        // =====================================================
+        // 從資料庫讀商品
+        // reset = true：重新開始（換了搜尋或篩選）
+        // reset = false：接著載入下一批（按「載入更多」）
+        // =====================================================
+        async function loadProducts(reset) {
+            if (reset) {
+                loadedCount = 0;
+                grid.textContent = "";
+                document.getElementById("loading").hidden = false;
+                document.getElementById("no-results").hidden = true;
+            }
+
+            const thisRequest = ++latestRequest;
+            loadMoreButton.disabled = true;
+            loadMoreButton.textContent = "讀取中…";
+
+            let query = db
+                .from("products")
+                .select("id, name, category, condition, price, images, is_sold", { count: "exact" })
+                .eq("status", "published");
+
+            if (filters.category !== "all") {
+                query = query.eq("category", filters.category);
+            }
+            if (filters.condition) {
+                query = query.eq("condition", filters.condition);
+            }
+
+            // 關鍵字：在名稱和說明裡找
+            // 先拿掉會讓搜尋出錯的特殊符號
+            const keyword = filters.keyword.replace(/[%_,()*\\:"'.]/g, " ").trim();
+            if (keyword) {
+                query = query.or(
+                    "name.ilike.%" + keyword + "%,description.ilike.%" + keyword + "%"
+                );
+            }
+
+            // 已售出的排在後面
+            query = query.order("is_sold", { ascending: true });
+
+            if (filters.sort === "price-asc") {
+                query = query.order("price", { ascending: true });
+            } else if (filters.sort === "price-desc") {
+                query = query.order("price", { ascending: false });
+            }
+            query = query
+                .order("created_at", { ascending: false })
+                .order("id", { ascending: true })
+                .range(loadedCount, loadedCount + PAGE_SIZE - 1);
+
+            const { data, error, count } = await query;
+
+            // 讀取期間又換了條件，這次的結果就不要了
+            if (thisRequest !== latestRequest) {
+                return;
+            }
+
+            document.getElementById("loading").hidden = true;
+            loadMoreButton.disabled = false;
+            loadMoreButton.textContent = "載入更多";
+
+            if (error) {
+                const noResults = document.getElementById("no-results");
+                noResults.textContent = translateError(error);
+                noResults.hidden = false;
+                loadMoreButton.hidden = true;
+                return;
+            }
+
+            data.forEach(function(product) {
+                grid.appendChild(makeCard(product));
+            });
+            loadedCount += data.length;
+
+            const total = count || 0;
+            document.getElementById("result-count").textContent = "共 " + total + " 件商品";
+
+            const noResults = document.getElementById("no-results");
+            noResults.textContent = "找不到相關商品，試試其他關鍵字吧 ♡";
+            noResults.hidden = total > 0;
+
+            // 還有沒載入的商品，才顯示「載入更多」
+            loadMoreButton.hidden = loadedCount >= total;
+        }
+
+        loadMoreButton.addEventListener("click", function() {
+            loadProducts(false);
+        });
+
+        loadProducts(true);
+
+
+        // 做出一張商品卡片（點了到商品頁）
+        function makeCard(product) {
+            const card = document.createElement("a");
+            card.className = "item-card" + (product.is_sold ? " sold" : "");
+            card.href = "product.html?id=" + product.id;
+
+            const imageBox = document.createElement("div");
+            imageBox.className = "item-image";
+
+            const img = document.createElement("img");
+            img.src = getImageUrl(product.images[0]);
+            img.alt = product.name;
+            img.loading = "lazy";
+            imageBox.appendChild(img);
+
+            if (product.is_sold) {
+                const overlay = document.createElement("div");
+                overlay.className = "sold-overlay";
+                overlay.setAttribute("role", "img");
+                overlay.setAttribute("aria-label", "已售出");
+                imageBox.appendChild(overlay);
+            }
+
+            const body = document.createElement("div");
+            body.className = "item-body";
+
+            const name = document.createElement("h3");
+            name.className = "item-name";
+            name.textContent = product.name;
+
+            const meta = document.createElement("p");
+            meta.className = "item-meta";
+            meta.textContent = getCategoryName(product.category) + "・" + product.condition;
+
+            const price = document.createElement("p");
+            price.className = "item-price";
+            price.textContent = "NT$ " + product.price.toLocaleString("zh-TW");
+
+            body.append(name, meta, price);
+            card.append(imageBox, body);
+            return card;
+        }
     </script>
 
 </body>

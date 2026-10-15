@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>我的商品｜usiann</title>
-    <link rel="stylesheet" href="style.css?v=4">
+    <link rel="stylesheet" href="style.css?v=5">
 </head>
 
 <body>
@@ -41,7 +41,7 @@
 
     <!-- Supabase 工具（固定版本，避免它自己更新後網站壞掉） -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-    <script src="common.js?v=4"></script>
+    <script src="common.js?v=5"></script>
 
     <script>
         const message = document.getElementById("form-message");
@@ -138,6 +138,13 @@
             // 按鈕們
             const actions = document.createElement("div");
             actions.className = "product-row-actions";
+
+            // 查看商品頁（可以從那裡分享出去）
+            const viewLink = document.createElement("a");
+            viewLink.href = "product.html?id=" + product.id;
+            viewLink.className = "small-button";
+            viewLink.textContent = "查看";
+            actions.appendChild(viewLink);
 
             if (product.status !== "removed") {
                 const editLink = document.createElement("a");

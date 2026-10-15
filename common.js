@@ -33,6 +33,14 @@ const CATEGORIES = [
 // 商品狀況（要跟資料庫裡的設定一樣）
 const CONDITIONS = ["全新", "近全新", "保存良好", "有使用痕跡", "有明顯瑕疵"];
 
+// 檢舉用的 Google 表單
+// REPORT_FORM_URL       表單的網址（結尾是 /viewform）
+// REPORT_PRODUCT_FIELD  表單裡「商品名稱」那一題的編號
+// 如果之後換了一份新表單，這兩行都要一起換
+const REPORT_FORM_URL =
+    "https://docs.google.com/forms/d/e/1FAIpQLSc74mJIX9Z_eLvbN6GgOveEIRzdeXaxrDfwr66ULdOg87pzIQ/viewform";
+const REPORT_PRODUCT_FIELD = "entry.308041687";
+
 // 商品照片放在 Supabase 的哪個圖片空間
 const IMAGE_BUCKET = "product-images";
 

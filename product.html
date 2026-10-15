@@ -1,0 +1,252 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>商品｜usiann</title>
+    <link rel="stylesheet" href="style.css?v=5">
+</head>
+
+<body>
+
+    <!-- 網站標題（點了回首頁） -->
+    <header>
+        <div id="user-menu" class="user-menu"></div>
+        <h1><a href="index.html" class="home-link">usiann ⋆˚꩜｡</a></h1>
+        <p>有啥？</p>
+    </header>
+
+    <main class="product-page">
+
+        <p><a href="index.html" class="text-button">← 回到商品列表</a></p>
+
+        <p id="loading" class="no-results">讀取中…</p>
+        <p id="not-found" class="no-results" hidden>找不到這個商品，可能已經被刪除或下架了 ♡</p>
+
+        <div id="product" class="product-layout" hidden>
+
+            <!-- 照片 -->
+            <div class="gallery">
+                <div id="gallery-main" class="gallery-main">
+                    <img id="main-image" alt="">
+                </div>
+                <div id="gallery-thumbs" class="gallery-thumbs"></div>
+            </div>
+
+            <!-- 商品資料 -->
+            <div class="product-info">
+                <p id="status-banner" class="status-banner" hidden></p>
+
+                <h2 id="product-name"></h2>
+
+                <div class="product-tags">
+                    <a id="product-category" class="tag" href="#"></a>
+                    <span id="product-condition" class="tag"></span>
+                </div>
+
+                <p id="product-price" class="product-price"></p>
+
+                <p id="product-description" class="product-description"></p>
+
+                <p id="product-seller" class="product-seller"></p>
+                <p id="product-date" class="product-seller"></p>
+
+                <div class="product-actions">
+                    <!-- target="_blank"：用新分頁打開 -->
+                    <!-- rel="noopener noreferrer"：讓打開的外部網站不能動到我們的網頁，比較安全 -->
+                    <a
+                        id="buy-button"
+                        class="buy-button"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                    >前往賣貨便購買</a>
+
+                    <button type="button" id="share-button" class="secondary-button">分享這個商品</button>
+                </div>
+
+                <p id="share-message" class="form-message" hidden></p>
+
+                <!-- 檢舉此商品：用新分頁打開 Google 表單，商品名稱會自動填好 -->
+                <a
+                    id="report-button"
+                    class="report-button"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                >檢舉此商品</a>
+            </div>
+
+        </div>
+    </main>
+
+    <footer>
+        <p>♡ usiann・二手收藏分享 ♡</p>
+
+        <!-- 免責聲明 -->
+        <div class="disclaimer">
+            <p>
+                本網站僅提供二手商品資訊的刊登與曝光，
+                不參與買賣雙方的交易，包含付款、物流、商品品質與真偽保證。
+            </p>
+            <p>
+                商品皆由賣家自行刊登，如發現仿冒品或可疑商品，
+                歡迎點選商品頁中的「檢舉此商品」告訴我們 ♡
+            </p>
+        </div>
+    </footer>
+
+    <!-- Supabase 工具（固定版本，避免它自己更新後網站壞掉） -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+    <script src="common.js?v=5"></script>
+
+    <script>
+        // 商品不是「已公開」時（只有賣家本人和管理員看得到），上面顯示的提醒
+        const STATUS_BANNER = {
+            pending: "🕐 這個商品正在等待審核，其他人還看不到",
+            rejected: "❌ 這個商品沒有通過審核，其他人看不到",
+            hidden: "⏸️ 這個商品因為被檢舉，暫時隱藏中",
+            removed: "🚫 這個商品已被管理員下架"
+        };
+
+        async function loadProduct() {
+            const productId = new URLSearchParams(window.location.search).get("id");
+
+            let product = null;
+            if (productId) {
+                const { data } = await db
+                    .from("products")
+                    .select("id, name, category, condition, price, description, link, images, status, is_sold, created_at, seller:profiles(nickname, seller_level)")
+                    .eq("id", productId)
+                    .maybeSingle();
+                product = data;
+            }
+
+            document.getElementById("loading").hidden = true;
+
+            if (!product) {
+                document.getElementById("not-found").hidden = false;
+                return;
+            }
+
+            document.title = product.name + "｜usiann";
+
+            // 不是公開狀態時的提醒
+            if (product.status !== "published") {
+                const banner = document.getElementById("status-banner");
+                banner.textContent = STATUS_BANNER[product.status] || "";
+                banner.hidden = false;
+            }
+
+            // 照片
+            showPhoto(product, 0);
+            const thumbs = document.getElementById("gallery-thumbs");
+            if (product.images.length > 1) {
+                product.images.forEach(function(path, index) {
+                    const button = document.createElement("button");
+                    button.type = "button";
+                    button.setAttribute("aria-label", "看第 " + (index + 1) + " 張照片");
+
+                    const img = document.createElement("img");
+                    img.src = getImageUrl(path);
+                    img.alt = "";
+                    button.appendChild(img);
+
+                    button.addEventListener("click", function() {
+                        showPhoto(product, index);
+                    });
+                    thumbs.appendChild(button);
+                });
+                markActiveThumb(0);
+            }
+
+            // 已售出：照片蓋上 SOLD OUT
+            if (product.is_sold) {
+                const overlay = document.createElement("div");
+                overlay.className = "sold-overlay";
+                overlay.setAttribute("role", "img");
+                overlay.setAttribute("aria-label", "已售出");
+                document.getElementById("gallery-main").appendChild(overlay);
+            }
+
+            // 文字資料
+            document.getElementById("product-name").textContent = product.name;
+
+            const categoryTag = document.getElementById("product-category");
+            categoryTag.textContent = getCategoryName(product.category);
+            categoryTag.href = "index.html?category=" + product.category;
+
+            document.getElementById("product-condition").textContent = product.condition;
+            document.getElementById("product-price").textContent =
+                "NT$ " + product.price.toLocaleString("zh-TW");
+            document.getElementById("product-description").textContent =
+                product.description || "賣家沒有填寫說明";
+
+            const seller = product.seller;
+            document.getElementById("product-seller").textContent =
+                "賣家：" + (seller ? seller.nickname : "—") +
+                (seller && seller.seller_level === "trusted" ? "（🌷 信任賣家）" : "");
+            document.getElementById("product-date").textContent =
+                "上架日期：" + new Date(product.created_at).toLocaleDateString("zh-TW");
+
+            // 購買按鈕：已售出就不能按
+            const buyButton = document.getElementById("buy-button");
+            if (product.is_sold) {
+                buyButton.textContent = "已售出";
+                buyButton.classList.add("disabled");
+                buyButton.setAttribute("aria-disabled", "true");
+            } else {
+                buyButton.href = product.link;
+            }
+
+            // 檢舉連結：自動把商品名稱填進表單
+            document.getElementById("report-button").href =
+                REPORT_FORM_URL +
+                "?usp=pp_url&" + REPORT_PRODUCT_FIELD + "=" +
+                encodeURIComponent(product.name);
+
+            document.getElementById("product").hidden = false;
+        }
+
+        // 切換大照片
+        function showPhoto(product, index) {
+            const mainImage = document.getElementById("main-image");
+            mainImage.src = getImageUrl(product.images[index]);
+            mainImage.alt = product.name + " 照片 " + (index + 1);
+            markActiveThumb(index);
+        }
+
+        function markActiveThumb(index) {
+            document.querySelectorAll("#gallery-thumbs button").forEach(function(button, i) {
+                button.classList.toggle("active", i === index);
+            });
+        }
+
+        loadProduct();
+
+
+        // ===== 分享 =====
+        // 手機：打開手機內建的分享選單（可以分享到 LINE、IG 等）
+        // 電腦：直接複製網址
+        document.getElementById("share-button").addEventListener("click", async function() {
+            const shareMessage = document.getElementById("share-message");
+            const url = window.location.href;
+
+            if (navigator.share) {
+                try {
+                    await navigator.share({ title: document.title, url: url });
+                } catch (error) {
+                    // 使用者自己取消分享，不用處理
+                }
+                return;
+            }
+
+            try {
+                await navigator.clipboard.writeText(url);
+                showMessage(shareMessage, "已複製商品網址，可以貼給朋友了 ♡", "success");
+            } catch (error) {
+                showMessage(shareMessage, "複製失敗，請直接複製瀏覽器上方的網址", "error");
+            }
+        });
+    </script>
+
+</body>
+</html>
