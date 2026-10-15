@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的商品｜usiann</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- 網站標題（點了回首頁） -->
+    <header>
+        <div id="user-menu" class="user-menu"></div>
+        <h1><a href="index.html" class="home-link">usiann ⋆˚꩜｡</a></h1>
+        <p>有啥？</p>
+    </header>
+
+    <main class="form-page">
+        <div class="my-products">
+            <div class="my-products-header">
+                <h2>我的商品</h2>
+                <a href="sell.html" class="small-button">＋ 上架商品</a>
+            </div>
+
+            <p id="form-message" class="form-message" hidden></p>
+
+            <p id="loading" class="form-hint">讀取中…</p>
+
+            <p id="empty" class="empty-hint" hidden>
+                你還沒有上架任何商品，<a href="sell.html">來上架第一件吧 ♡</a>
+            </p>
+
+            <div id="product-rows"></div>
+        </div>
+    </main>
+
+    <footer>
+        <p>♡ usiann・二手收藏分享 ♡</p>
+    </footer>
+
+    <!-- Supabase 工具（固定版本，避免它自己更新後網站壞掉） -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+    <script src="common.js"></script>
+
+    <script>
+        const message = document.getElementById("form-message");
+        let currentUser = null;
+
+        // 每種商品狀態要顯示的文字
+        const STATUS_TEXT = {
+            pending: "🕐 審核中",
+            published: "✅ 已公開",
+            rejected: "❌ 沒通過審核",
+            hidden: "⏸️ 暫時隱藏（被檢舉，等待管理員確認）",
+            removed: "🚫 已被管理員下架"
+        };
+
+        // 從上架頁回來時，顯示「已儲存」
+        if (new URLSearchParams(window.location.search).get("saved")) {
+            showMessage(message, "商品已儲存 ♡ 審核中的商品通過後就會公開", "success");
+        }
+
+
+        // ===== 讀取自己的商品 =====
+        async function loadProducts() {
+            currentUser = await requireLogin();
+            if (!currentUser) {
+                return;
+            }
+
+            const { data, error } = await db
+                .from("products")
+                .select("id, name, category, condition, price, images, status, reject_reason, is_sold, created_at")
+                .eq("seller_id", currentUser.id)
+                .order("created_at", { ascending: false });
+
+            document.getElementById("loading").hidden = true;
+
+            if (error) {
+                showMessage(message, translateError(error), "error");
+                return;
+            }
+
+            document.getElementById("empty").hidden = data.length > 0;
+
+            const rows = document.getElementById("product-rows");
+            rows.textContent = "";
+            data.forEach(function(product) {
+                rows.appendChild(makeRow(product));
+            });
+        }
+
+        loadProducts();
+
+
+        // 做出一列商品
+        function makeRow(product) {
+            const row = document.createElement("div");
+            row.className = "product-row";
+
+            const img = document.createElement("img");
+            img.className = "product-row-image";
+            img.src = getImageUrl(product.images[0]);
+            img.alt = product.name;
+
+            const info = document.createElement("div");
+            info.className = "product-row-info";
+
+            const name = document.createElement("h3");
+            name.textContent = product.name;
+
+            const details = document.createElement("p");
+            details.textContent =
+                getCategoryName(product.category) + "・" +
+                product.condition + "・NT$ " + product.price;
+
+            const status = document.createElement("p");
+            status.className = "status status-" + product.status;
+            status.textContent = STATUS_TEXT[product.status] || product.status;
+            if (product.is_sold) {
+                const sold = document.createElement("span");
+                sold.className = "sold-badge";
+                sold.textContent = "已售出";
+                status.appendChild(sold);
+            }
+
+            info.append(name, details, status);
+
+            // 沒通過審核時顯示原因
+            if (product.status === "rejected" && product.reject_reason) {
+                const reason = document.createElement("p");
+                reason.className = "reject-reason";
+                reason.textContent = "原因：" + product.reject_reason + "（修改後會重新送審）";
+                info.appendChild(reason);
+            }
+
+            // 按鈕們
+            const actions = document.createElement("div");
+            actions.className = "product-row-actions";
+
+            if (product.status !== "removed") {
+                const editLink = document.createElement("a");
+                editLink.href = "sell.html?id=" + product.id;
+                editLink.className = "small-button";
+                editLink.textContent = "編輯";
+                actions.appendChild(editLink);
+
+                const soldButton = document.createElement("button");
+                soldButton.type = "button";
+                soldButton.className = "small-button";
+                soldButton.textContent = product.is_sold ? "取消已售出" : "標示已售出";
+                soldButton.addEventListener("click", function() {
+                    toggleSold(product);
+                });
+                actions.appendChild(soldButton);
+            }
+
+            const deleteButton = document.createElement("button");
+            deleteButton.type = "button";
+            deleteButton.className = "small-button danger";
+            deleteButton.textContent = "刪除";
+            deleteButton.addEventListener("click", function() {
+                deleteProduct(product);
+            });
+            actions.appendChild(deleteButton);
+
+            row.append(img, info, actions);
+            return row;
+        }
+
+
+        // ===== 標示已售出／取消已售出 =====
+        async function toggleSold(product) {
+            const { error } = await db
+                .from("products")
+                .update({ is_sold: !product.is_sold })
+                .eq("id", product.id);
+
+            if (error) {
+                showMessage(message, translateError(error), "error");
+                return;
+            }
+            message.hidden = true;
+            loadProducts();
+        }
+
+
+        // ===== 刪除 =====
+        async function deleteProduct(product) {
+            const sure = window.confirm(
+                "確定要刪除「" + product.name + "」嗎？\n刪除後就救不回來了。"
+            );
+            if (!sure) {
+                return;
+            }
+
+            const { error } = await db
+                .from("products")
+                .delete()
+                .eq("id", product.id);
+
+            if (error) {
+                showMessage(message, translateError(error), "error");
+                return;
+            }
+
+            // 商品刪掉後，照片也一起刪掉
+            await db.storage.from(IMAGE_BUCKET).remove(product.images);
+
+            showMessage(message, "已刪除「" + product.name + "」", "success");
+            loadProducts();
+        }
+    </script>
+
+</body>
+</html>

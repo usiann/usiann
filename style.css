@@ -397,7 +397,12 @@ footer p {
 
 .form-card input[type="text"],
 .form-card input[type="email"],
-.form-card input[type="password"] {
+.form-card input[type="password"],
+.form-card input[type="number"],
+.form-card input[type="url"],
+.form-card select,
+.form-card textarea {
+    font-family: inherit;
     padding: 11px 14px;
     border: 1px solid #E8DCD7;
     border-radius: 12px;
@@ -406,7 +411,13 @@ footer p {
     font-size: 14px;
 }
 
-.form-card input:focus {
+.form-card textarea {
+    resize: vertical;
+}
+
+.form-card input:focus,
+.form-card select:focus,
+.form-card textarea:focus {
     outline: 2px solid #F0D8E0;
     border-color: #D9A4B3;
 }
@@ -583,6 +594,205 @@ footer p {
     background-color: #FFF8F5;
     color: #805463;
     font-size: 13px;
+}
+
+/* ===== 上架商品 ===== */
+
+/* 比較寬的表單卡片 */
+.form-card.wide {
+    max-width: 560px;
+}
+
+.field {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    font-size: 14px;
+}
+
+/* 照片格子 */
+.photo-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(90px, 1fr));
+    gap: 10px;
+}
+
+.photo-item,
+.photo-add {
+    position: relative;
+    aspect-ratio: 1;
+    border-radius: 12px;
+    overflow: hidden;
+}
+
+.photo-item img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.photo-cover {
+    position: absolute;
+    left: 6px;
+    bottom: 6px;
+    padding: 1px 8px;
+    border-radius: 20px;
+    background-color: rgba(255, 255, 255, 0.9);
+    color: #805463;
+    font-size: 11px;
+}
+
+.photo-remove {
+    position: absolute;
+    top: 4px;
+    right: 4px;
+    width: 24px;
+    height: 24px;
+    border: none;
+    border-radius: 50%;
+    background-color: rgba(81, 74, 70, 0.6);
+    color: #FFFFFF;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.photo-add {
+    border: 2px dashed #E8DCD7;
+    background-color: #FFF8F5;
+    color: #948780;
+    font-size: 13px;
+    white-space: pre-line;
+    cursor: pointer;
+}
+
+.photo-add:hover {
+    border-color: #D9A4B3;
+    color: #805463;
+}
+
+/* ===== 我的商品 ===== */
+.my-products {
+    max-width: 760px;
+    margin: 0 auto;
+}
+
+.my-products-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.my-products-header h2 {
+    margin: 0;
+    font-size: 21px;
+    font-weight: 600;
+}
+
+/* 小按鈕 */
+.small-button {
+    display: inline-block;
+    padding: 7px 16px;
+    border: none;
+    border-radius: 20px;
+    background-color: #F6E3E8;
+    color: #805463;
+    font-size: 13px;
+    text-decoration: none;
+    cursor: pointer;
+    transition: background-color 0.2s ease;
+}
+
+.small-button:hover {
+    background-color: #EECBD5;
+}
+
+.small-button.danger {
+    background-color: #FFFFFF;
+    border: 1px solid #F0E5E2;
+    color: #A0475F;
+}
+
+.small-button.danger:hover {
+    background-color: #FBEAEE;
+}
+
+.empty-hint {
+    padding: 40px 20px;
+    text-align: center;
+    color: #948780;
+}
+
+.empty-hint a {
+    color: #B86F85;
+}
+
+/* 一列商品 */
+.product-row {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 16px;
+    margin-top: 14px;
+    padding: 14px;
+    background-color: #FFFFFF;
+    border: 1px solid #F0E5E2;
+    border-radius: 12px;
+}
+
+.product-row-image {
+    width: 80px;
+    height: 80px;
+    object-fit: cover;
+    border-radius: 10px;
+    background-color: #FFF8F5;
+}
+
+.product-row-info {
+    flex: 1;
+    min-width: 180px;
+}
+
+.product-row-info h3 {
+    margin: 0 0 4px;
+    font-size: 16px;
+    font-weight: 500;
+}
+
+.product-row-info p {
+    margin: 2px 0;
+    color: #948780;
+    font-size: 13px;
+}
+
+.product-row-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.status {
+    color: #805463 !important;
+}
+
+.status-rejected,
+.status-removed {
+    color: #A0475F !important;
+}
+
+.sold-badge {
+    margin-left: 8px;
+    padding: 1px 8px;
+    border-radius: 20px;
+    background-color: #EDE8E5;
+    color: #514A46;
+    font-size: 12px;
+}
+
+.reject-reason {
+    color: #A0475F !important;
 }
 
 /* ===== 手機版調整 ===== */

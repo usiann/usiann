@@ -1,0 +1,416 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>上架商品｜usiann</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- 網站標題（點了回首頁） -->
+    <header>
+        <div id="user-menu" class="user-menu"></div>
+        <h1><a href="index.html" class="home-link">usiann ⋆˚꩜｡</a></h1>
+        <p>有啥？</p>
+    </header>
+
+    <main class="form-page">
+
+        <p id="loading" class="form-hint">讀取中…</p>
+
+        <div id="sell-card" class="form-card wide" hidden>
+            <h2 id="page-title">上架商品</h2>
+
+            <!-- 新手賣家／信任賣家的提醒 -->
+            <p id="level-hint" class="level-hint"></p>
+
+            <form id="sell-form">
+
+                <!-- 照片 -->
+                <div class="field">
+                    <span class="field-label">商品照片（1～5 張，第一張是封面）</span>
+                    <div id="photo-grid" class="photo-grid"></div>
+                    <!-- 真正選照片的按鈕藏起來，用上面的「＋」方塊來按 -->
+                    <input type="file" id="photo-input" accept="image/*" multiple hidden>
+                </div>
+
+                <label>
+                    商品名稱（最多 50 個字）
+                    <input type="text" id="name" required maxlength="50">
+                </label>
+
+                <label>
+                    角色分類
+                    <select id="category" required></select>
+                </label>
+
+                <label>
+                    商品狀況
+                    <select id="condition" required></select>
+                </label>
+
+                <label>
+                    價格（NT$，只填數字）
+                    <input type="number" id="price" required min="1" max="1000000" step="1" inputmode="numeric">
+                </label>
+
+                <label>
+                    商品說明（最多 1000 個字）
+                    <textarea id="description" rows="5" maxlength="1000"
+                        placeholder="例如：購買時間、尺寸、有沒有瑕疵、是否附原盒…"></textarea>
+                </label>
+
+                <label>
+                    賣貨便連結
+                    <input type="url" id="link" required
+                        placeholder="https://myship.7-11.com.tw/...">
+                </label>
+
+                <button type="submit" id="submit-button" class="primary-button">送出</button>
+            </form>
+
+            <p id="form-message" class="form-message" hidden></p>
+        </div>
+
+    </main>
+
+    <footer>
+        <p>♡ usiann・二手收藏分享 ♡</p>
+    </footer>
+
+    <!-- Supabase 工具（固定版本，避免它自己更新後網站壞掉） -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+    <script src="common.js"></script>
+
+    <script>
+        // 最多幾張照片
+        const MAX_PHOTOS = 5;
+        // 照片最長邊縮小到幾像素（越小越省空間，1280 在手機和電腦上都夠清楚）
+        const PHOTO_MAX_SIZE = 1280;
+        // 賣貨便連結的格式
+        const MYSHIP_LINK = /^https:\/\/myship\.7-11\.com\.tw\//;
+
+        const form = document.getElementById("sell-form");
+        const message = document.getElementById("form-message");
+        const photoInput = document.getElementById("photo-input");
+
+        let currentUser = null;
+        // 編輯模式時，這裡是原本的商品資料；新上架時是 null
+        let editingProduct = null;
+        // 目前的照片清單
+        // 已經上傳過的照片：{ path: "照片位置" }
+        // 剛選的新照片：   { blob: 縮小後的照片, previewUrl: "預覽用網址" }
+        let photos = [];
+
+
+        // ===== 開始 =====
+        async function init() {
+            currentUser = await requireLogin();
+            if (!currentUser) {
+                return;
+            }
+
+            // 填入角色分類、商品狀況的選項
+            const categorySelect = document.getElementById("category");
+            CATEGORIES.forEach(function(category) {
+                categorySelect.add(new Option(category.icon + " " + category.name, category.id));
+            });
+            const conditionSelect = document.getElementById("condition");
+            CONDITIONS.forEach(function(condition) {
+                conditionSelect.add(new Option(condition, condition));
+            });
+
+            const profile = await getMyProfile();
+            const isTrusted = profile && profile.seller_level === "trusted";
+            const levelHint = document.getElementById("level-hint");
+
+            // 網址後面有 ?id=... 就是「編輯商品」
+            const productId = new URLSearchParams(window.location.search).get("id");
+
+            if (productId) {
+                const { data, error } = await db
+                    .from("products")
+                    .select("id, seller_id, name, category, condition, price, description, link, images, status")
+                    .eq("id", productId)
+                    .eq("seller_id", currentUser.id)
+                    .maybeSingle();
+
+                if (error || !data) {
+                    document.getElementById("loading").textContent = "找不到這個商品，或你沒有權限修改它";
+                    return;
+                }
+                if (data.status === "removed") {
+                    document.getElementById("loading").textContent = "這個商品已被管理員下架，無法修改";
+                    return;
+                }
+
+                editingProduct = data;
+                document.title = "編輯商品｜usiann";
+                document.getElementById("page-title").textContent = "編輯商品";
+                document.getElementById("submit-button").textContent = "儲存修改";
+
+                document.getElementById("name").value = data.name;
+                categorySelect.value = data.category;
+                conditionSelect.value = data.condition;
+                document.getElementById("price").value = data.price;
+                document.getElementById("description").value = data.description;
+                document.getElementById("link").value = data.link;
+                photos = data.images.map(function(path) { return { path: path }; });
+
+                if (data.status === "rejected") {
+                    levelHint.textContent = "修改後會重新送出審核 ♡";
+                } else if (!isTrusted && data.status === "published") {
+                    levelHint.textContent = "你目前是新手賣家，修改商品內容後需要重新審核。只改「已售出」不用重新審核。";
+                } else {
+                    levelHint.hidden = true;
+                }
+            } else if (isTrusted) {
+                levelHint.textContent = "你是 🌷 信任賣家，送出後商品會直接公開 ♡";
+            } else {
+                levelHint.textContent = "你目前是 🌱 新手賣家，送出後需要等待審核，通過後才會公開 ♡";
+            }
+
+            renderPhotos();
+            document.getElementById("loading").hidden = true;
+            document.getElementById("sell-card").hidden = false;
+        }
+
+        init();
+
+
+        // ===== 照片 =====
+
+        // 把照片畫出來：每張照片右上角有 ×，最後面有「＋」可以再加
+        function renderPhotos() {
+            const grid = document.getElementById("photo-grid");
+            grid.textContent = "";
+
+            photos.forEach(function(photo, index) {
+                const item = document.createElement("div");
+                item.className = "photo-item";
+
+                const img = document.createElement("img");
+                img.src = photo.path ? getImageUrl(photo.path) : photo.previewUrl;
+                img.alt = "商品照片 " + (index + 1);
+                item.appendChild(img);
+
+                if (index === 0) {
+                    const cover = document.createElement("span");
+                    cover.className = "photo-cover";
+                    cover.textContent = "封面";
+                    item.appendChild(cover);
+                }
+
+                const removeButton = document.createElement("button");
+                removeButton.type = "button";
+                removeButton.className = "photo-remove";
+                removeButton.textContent = "✕";
+                removeButton.setAttribute("aria-label", "移除這張照片");
+                removeButton.addEventListener("click", function() {
+                    if (photo.previewUrl) {
+                        URL.revokeObjectURL(photo.previewUrl);
+                    }
+                    photos.splice(index, 1);
+                    renderPhotos();
+                });
+                item.appendChild(removeButton);
+
+                grid.appendChild(item);
+            });
+
+            if (photos.length < MAX_PHOTOS) {
+                const addButton = document.createElement("button");
+                addButton.type = "button";
+                addButton.className = "photo-add";
+                addButton.textContent = "＋\n新增照片";
+                addButton.addEventListener("click", function() {
+                    photoInput.click();
+                });
+                grid.appendChild(addButton);
+            }
+        }
+
+        // 選好照片後：縮小 → 加進清單
+        photoInput.addEventListener("change", async function() {
+            const files = Array.from(photoInput.files);
+            photoInput.value = "";
+
+            const roomLeft = MAX_PHOTOS - photos.length;
+            if (files.length > roomLeft) {
+                showMessage(message, "最多只能放 " + MAX_PHOTOS + " 張照片，多的不會加進來", "error");
+            }
+
+            for (const file of files.slice(0, roomLeft)) {
+                try {
+                    const blob = await shrinkPhoto(file);
+                    photos.push({ blob: blob, previewUrl: URL.createObjectURL(blob) });
+                } catch (error) {
+                    showMessage(message, error.message, "error");
+                }
+            }
+
+            renderPhotos();
+        });
+
+        // 把照片縮小成最長邊 PHOTO_MAX_SIZE 像素的 JPG
+        function shrinkPhoto(file) {
+            return new Promise(function(resolve, reject) {
+                const fileUrl = URL.createObjectURL(file);
+                const img = new Image();
+
+                img.onload = function() {
+                    const scale = Math.min(1, PHOTO_MAX_SIZE / Math.max(img.width, img.height));
+                    const canvas = document.createElement("canvas");
+                    canvas.width = Math.round(img.width * scale);
+                    canvas.height = Math.round(img.height * scale);
+
+                    const context = canvas.getContext("2d");
+                    // 透明背景的圖片改成白底
+                    context.fillStyle = "#FFFFFF";
+                    context.fillRect(0, 0, canvas.width, canvas.height);
+                    context.drawImage(img, 0, 0, canvas.width, canvas.height);
+                    URL.revokeObjectURL(fileUrl);
+
+                    canvas.toBlob(function(blob) {
+                        if (blob) {
+                            resolve(blob);
+                        } else {
+                            reject(new Error("照片處理失敗，請換一張試試"));
+                        }
+                    }, "image/jpeg", 0.82);
+                };
+
+                img.onerror = function() {
+                    URL.revokeObjectURL(fileUrl);
+                    reject(new Error("「" + file.name + "」的格式不支援，請換成 JPG 或 PNG"));
+                };
+
+                img.src = fileUrl;
+            });
+        }
+
+        // 產生不會重複的檔名
+        function newPhotoName() {
+            if (window.crypto && crypto.randomUUID) {
+                return crypto.randomUUID() + ".jpg";
+            }
+            return Date.now() + "-" + Math.random().toString(36).slice(2) + ".jpg";
+        }
+
+        // 從圖片空間刪掉照片（失敗也沒關係，不影響商品）
+        async function deletePhotos(paths) {
+            if (paths.length > 0) {
+                await db.storage.from(IMAGE_BUCKET).remove(paths);
+            }
+        }
+
+
+        // ===== 送出 =====
+        form.addEventListener("submit", async function(event) {
+            event.preventDefault();
+            message.hidden = true;
+
+            const name = document.getElementById("name").value.trim();
+            const price = Number(document.getElementById("price").value);
+            const link = document.getElementById("link").value.trim();
+
+            if (photos.length === 0) {
+                showMessage(message, "請至少放 1 張商品照片", "error");
+                return;
+            }
+            if (name === "") {
+                showMessage(message, "請填寫商品名稱", "error");
+                return;
+            }
+            if (!Number.isInteger(price) || price < 1 || price > 1000000) {
+                showMessage(message, "價格要是 1 到 1,000,000 之間的整數", "error");
+                return;
+            }
+            if (!MYSHIP_LINK.test(link)) {
+                showMessage(message, "賣貨便連結不正確，請貼上 https://myship.7-11.com.tw/ 開頭的網址", "error");
+                return;
+            }
+
+            const submitButton = document.getElementById("submit-button");
+            submitButton.disabled = true;
+            submitButton.textContent = "上傳中…";
+
+            // 1. 先上傳新的照片
+            const newlyUploaded = [];
+            for (const photo of photos) {
+                if (photo.path) {
+                    continue;
+                }
+                const path = currentUser.id + "/" + newPhotoName();
+                const { error } = await db.storage
+                    .from(IMAGE_BUCKET)
+                    .upload(path, photo.blob, { contentType: "image/jpeg" });
+
+                if (error) {
+                    await deletePhotos(newlyUploaded);
+                    finishWithError(error);
+                    return;
+                }
+                newlyUploaded.push(path);
+                photo.uploadedPath = path;
+            }
+
+            const images = photos.map(function(photo) {
+                return photo.path || photo.uploadedPath;
+            });
+
+            const productData = {
+                name: name,
+                category: document.getElementById("category").value,
+                condition: document.getElementById("condition").value,
+                price: price,
+                description: document.getElementById("description").value.trim(),
+                link: link,
+                images: images
+            };
+
+            // 2. 再存商品資料
+            let result;
+            if (editingProduct) {
+                result = await db
+                    .from("products")
+                    .update(productData)
+                    .eq("id", editingProduct.id)
+                    .select("id");
+            } else {
+                result = await db
+                    .from("products")
+                    .insert(productData)
+                    .select("id");
+            }
+
+            if (result.error || !result.data || result.data.length === 0) {
+                // 商品沒存成功，剛上傳的照片也刪掉
+                await deletePhotos(newlyUploaded);
+                finishWithError(result.error || { message: "儲存失敗，這個商品可能已經不能修改了" });
+                return;
+            }
+
+            // 3. 編輯時，把被移除的舊照片從圖片空間刪掉
+            if (editingProduct) {
+                const removed = editingProduct.images.filter(function(path) {
+                    return !images.includes(path);
+                });
+                await deletePhotos(removed);
+            }
+
+            window.location.href = "my-products.html?saved=1";
+        });
+
+        function finishWithError(error) {
+            const submitButton = document.getElementById("submit-button");
+            submitButton.disabled = false;
+            submitButton.textContent = editingProduct ? "儲存修改" : "送出";
+            showMessage(message, translateError(error), "error");
+        }
+    </script>
+
+</body>
+</html>

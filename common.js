@@ -20,11 +20,48 @@ const SITE_BASE = new URL(".", window.location.href).href;
 // ⚠️ 這個數字要跟資料庫裡的設定一樣，改的時候兩邊都要改
 const TRUSTED_APPROVALS_NEEDED = 2;
 
+// 角色分類
+// ⚠️ 要新增角色時，資料庫裡的設定也要一起改，請找我幫忙
+const CATEGORIES = [
+    { id: "hello-kitty", name: "Hello Kitty", icon: "🎀" },
+    { id: "pompompurin", name: "布丁狗", icon: "🍮" },
+    { id: "cinnamoroll", name: "大耳狗", icon: "☁️" },
+    { id: "usahana", name: "花小兔", icon: "🌸" },
+    { id: "kuromi", name: "酷洛米", icon: "💜" }
+];
+
+// 商品狀況（要跟資料庫裡的設定一樣）
+const CONDITIONS = ["全新", "近全新", "保存良好", "有使用痕跡", "有明顯瑕疵"];
+
+// 商品照片放在 Supabase 的哪個圖片空間
+const IMAGE_BUCKET = "product-images";
+
+// 把照片在圖片空間裡的位置，轉成可以顯示的網址
+function getImageUrl(path) {
+    return db.storage.from(IMAGE_BUCKET).getPublicUrl(path).data.publicUrl;
+}
+
+// 用角色代號找角色名稱，例如 "usahana" → "花小兔"
+function getCategoryName(id) {
+    const category = CATEGORIES.find(function(c) { return c.id === id; });
+    return category ? category.name : id;
+}
+
 
 // 取得現在登入的會員，沒有登入就回傳 null
 async function getCurrentUser() {
     const { data } = await db.auth.getSession();
     return data.session ? data.session.user : null;
+}
+
+// 這一頁一定要登入才能用：沒登入就帶去登入頁
+async function requireLogin() {
+    const user = await getCurrentUser();
+    if (!user) {
+        window.location.href = "login.html";
+        return null;
+    }
+    return user;
 }
 
 // 取得自己的會員資料（暱稱、等級、通過審核數量等）
@@ -65,6 +102,34 @@ function translateError(error) {
     if (message.includes("provider is not enabled")) {
         return "Google 登入還沒開放，請先用 email 登入";
     }
+    // 資料庫的檢查沒通過
+    if (message.includes("products_link_check")) {
+        return "賣貨便連結不正確，請貼上 https://myship.7-11.com.tw/ 開頭的網址";
+    }
+    if (message.includes("products_images_check")) {
+        return "照片要 1 到 5 張";
+    }
+    if (message.includes("products_name_check")) {
+        return "商品名稱要 1 到 50 個字";
+    }
+    if (message.includes("products_price_check")) {
+        return "價格要在 1 到 1,000,000 之間";
+    }
+    if (message.includes("products_description_check")) {
+        return "商品說明最多 1000 個字";
+    }
+    if (message.includes("profiles_nickname_check")) {
+        return "暱稱要 1 到 20 個字";
+    }
+    if (message.includes("row-level security")) {
+        return "你沒有權限做這件事，請重新登入再試一次";
+    }
+    if (message.includes("maximum allowed size") || message.includes("too large")) {
+        return "照片檔案太大了，請換一張試試";
+    }
+    if (message.includes("mime type")) {
+        return "照片格式不支援，請用 JPG 或 PNG";
+    }
     if (message.includes("Failed to fetch")) {
         return "連線失敗，請檢查網路後再試一次";
     }
@@ -100,11 +165,19 @@ async function renderUserMenu() {
     greeting.textContent =
         "嗨，" + (profile ? profile.nickname : "新朋友") + " ♡";
 
+    const sellLink = document.createElement("a");
+    sellLink.href = "sell.html";
+    sellLink.textContent = "上架商品";
+
+    const myProductsLink = document.createElement("a");
+    myProductsLink.href = "my-products.html";
+    myProductsLink.textContent = "我的商品";
+
     const accountLink = document.createElement("a");
     accountLink.href = "account.html";
     accountLink.textContent = "我的帳號";
 
-    menu.append(greeting, accountLink);
+    menu.append(greeting, sellLink, myProductsLink, accountLink);
 }
 
 renderUserMenu();
