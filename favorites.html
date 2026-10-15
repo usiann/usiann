@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>我的收藏｜usiann</title>
+    <link rel="stylesheet" href="style.css?v=8">
+</head>
+
+<body>
+
+    <!-- 網站標題（點了回首頁） -->
+    <header>
+        <div id="user-menu" class="user-menu"></div>
+        <h1><a href="index.html" class="home-link">usiann ⋆˚꩜｡</a></h1>
+        <p>有啥？</p>
+    </header>
+
+    <main class="shop">
+
+        <div class="toolbar">
+            <p id="result-count" class="result-count">我的收藏</p>
+            <div class="view-switch" role="group" aria-label="顯示方式">
+                <button type="button" data-view="medium">中圖</button>
+                <button type="button" data-view="list">條列</button>
+                <button type="button" data-view="large">大圖</button>
+            </div>
+        </div>
+
+        <div id="product-grid" class="item-grid view-medium"></div>
+
+        <p id="loading" class="no-results">讀取中…</p>
+        <p id="empty" class="no-results" hidden>
+            你還沒有收藏任何商品，<a href="index.html" class="seller-link">去逛逛吧 ♡</a>
+        </p>
+
+    </main>
+
+    <footer>
+        <p>♡ usiann・二手收藏分享 ♡</p>
+    </footer>
+
+    <!-- Supabase 工具（固定版本，避免它自己更新後網站壞掉） -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+    <script src="common.js?v=6"></script>
+    <!-- 商品列表共用程式（商品卡片、顯示方式） -->
+    <script src="product-list.js?v=2"></script>
+
+    <script>
+        const grid = document.getElementById("product-grid");
+        setupViewSwitch(grid);
+
+        let favoriteTotal = 0;
+
+        async function loadFavorites() {
+            const user = await requireLogin();
+            if (!user) {
+                return;
+            }
+
+            // 讀收藏清單，連同商品資料一起讀
+            // 被下架或刪除的商品讀不到，會自動不顯示
+            const { data, error } = await db
+                .from("favorites")
+                .select("created_at, product:products(id, name, category, condition, price, description, images, is_sold, created_at, status)")
+                .order("created_at", { ascending: false });
+
+            document.getElementById("loading").hidden = true;
+
+            if (error) {
+                const empty = document.getElementById("empty");
+                empty.textContent = translateError(error);
+                empty.hidden = false;
+                return;
+            }
+
+            const products = data
+                .map(function(row) { return row.product; })
+                .filter(function(product) {
+                    return product && product.status === "published";
+                });
+
+            favoriteTotal = products.length;
+            updateCount();
+
+            products.forEach(function(product) {
+                // 在這一頁取消收藏時，把卡片拿掉
+                grid.appendChild(makeCard(product, function(isFavorite, card) {
+                    if (!isFavorite) {
+                        card.remove();
+                        favoriteTotal -= 1;
+                        updateCount();
+                    }
+                }));
+            });
+        }
+
+        function updateCount() {
+            document.getElementById("result-count").textContent =
+                "我的收藏（" + favoriteTotal + " 件）";
+            document.getElementById("empty").hidden = favoriteTotal > 0;
+        }
+
+        loadFavorites();
+    </script>
+
+</body>
+</html>

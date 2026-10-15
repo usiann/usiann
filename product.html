@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>商品｜usiann</title>
-    <link rel="stylesheet" href="style.css?v=7">
+    <link rel="stylesheet" href="style.css?v=8">
 </head>
 
 <body>
@@ -61,7 +61,13 @@
                         rel="noopener noreferrer"
                     >前往賣貨便購買</a>
 
+                    <!-- 「♡ 加入收藏」按鈕會由程式放進這裡 -->
+                    <div id="favorite-slot"></div>
+
                     <button type="button" id="share-button" class="secondary-button">分享這個商品</button>
+
+                    <!-- 收藏人數 -->
+                    <p id="favorite-count" class="favorite-count" hidden></p>
                 </div>
 
                 <p id="share-message" class="form-message" hidden></p>
@@ -96,7 +102,7 @@
 
     <!-- Supabase 工具（固定版本，避免它自己更新後網站壞掉） -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-    <script src="common.js?v=5"></script>
+    <script src="common.js?v=6"></script>
 
     <script>
         // 商品不是「已公開」時（只有賣家本人和管理員看得到），上面顯示的提醒
@@ -204,6 +210,19 @@
                 buyButton.href = product.link;
             }
 
+            // 收藏按鈕和收藏人數（只有公開的商品可以收藏）
+            if (product.status === "published") {
+                const { data: count } = await db.rpc("favorite_count", { target_id: product.id });
+                let favoriteCount = count || 0;
+                showFavoriteCount(favoriteCount);
+
+                const favoriteButton = makeFavoriteButton(product.id, true, function(isFavorite) {
+                    favoriteCount += isFavorite ? 1 : -1;
+                    showFavoriteCount(favoriteCount);
+                });
+                document.getElementById("favorite-slot").appendChild(favoriteButton);
+            }
+
             // 檢舉連結：自動把商品名稱填進表單
             document.getElementById("report-button").href =
                 REPORT_FORM_URL +
@@ -211,6 +230,13 @@
                 encodeURIComponent(product.name);
 
             document.getElementById("product").hidden = false;
+        }
+
+        // 顯示「♥ N 人收藏」，0 人時不顯示
+        function showFavoriteCount(count) {
+            const element = document.getElementById("favorite-count");
+            element.textContent = "♥ " + count + " 人收藏";
+            element.hidden = count <= 0;
         }
 
         // 切換大照片

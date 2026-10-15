@@ -38,11 +38,16 @@ function timeAgo(dateText) {
 }
 
 
-// 做出一張商品卡片（點了到商品頁）
-function makeCard(product) {
-    const card = document.createElement("a");
+// 做出一張商品卡片（點了到商品頁，右上角有愛心）
+// onFavoriteChange：收藏狀態改變後要做什麼（可以不給）
+function makeCard(product, onFavoriteChange) {
+    const card = document.createElement("div");
     card.className = "item-card" + (product.is_sold ? " sold" : "");
-    card.href = "product.html?id=" + product.id;
+
+    // 卡片裡可以點的部分（照片和文字）
+    const link = document.createElement("a");
+    link.className = "item-link";
+    link.href = "product.html?id=" + product.id;
 
     const imageBox = document.createElement("div");
     imageBox.className = "item-image";
@@ -87,7 +92,16 @@ function makeCard(product) {
     extra.textContent = timeAgo(product.created_at) + "上架";
 
     body.append(name, meta, price, details, extra);
-    card.append(imageBox, body);
+    link.append(imageBox, body);
+
+    // 愛心按鈕（放在連結外面，點愛心不會跳到商品頁）
+    const favoriteButton = makeFavoriteButton(product.id, false, function(isFavorite) {
+        if (onFavoriteChange) {
+            onFavoriteChange(isFavorite, card);
+        }
+    });
+
+    card.append(link, favoriteButton);
     return card;
 }
 

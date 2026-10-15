@@ -181,11 +181,15 @@ async function renderUserMenu() {
     myProductsLink.href = "my-products.html";
     myProductsLink.textContent = "我的商品";
 
+    const favoritesLink = document.createElement("a");
+    favoritesLink.href = "favorites.html";
+    favoritesLink.textContent = "我的收藏";
+
     const accountLink = document.createElement("a");
     accountLink.href = "account.html";
     accountLink.textContent = "我的帳號";
 
-    menu.append(greeting, sellLink, myProductsLink, accountLink);
+    menu.append(greeting, sellLink, myProductsLink, favoritesLink, accountLink);
 
     // 管理員才看得到「管理頁」
     if (profile && profile.is_admin) {
@@ -197,6 +201,117 @@ async function renderUserMenu() {
 }
 
 renderUserMenu();
+
+
+// =========================================================
+// 收藏（愛心）
+// =========================================================
+
+// 我收藏了哪些商品（只讀一次，整頁共用）
+let favoriteIdsPromise = null;
+
+function loadMyFavoriteIds() {
+    if (!favoriteIdsPromise) {
+        favoriteIdsPromise = (async function() {
+            const ids = new Set();
+            const user = await getCurrentUser();
+            if (!user) {
+                return ids;
+            }
+            const { data } = await db.from("favorites").select("product_id");
+            (data || []).forEach(function(row) {
+                ids.add(row.product_id);
+            });
+            return ids;
+        })();
+    }
+    return favoriteIdsPromise;
+}
+
+// 收藏或取消收藏
+// 回傳 true = 現在是收藏的、false = 取消了、null = 沒登入
+async function toggleFavorite(productId) {
+    const user = await getCurrentUser();
+    if (!user) {
+        if (window.confirm("登入後就可以收藏喔 ♡\n要現在去登入嗎？")) {
+            window.location.href = "login.html";
+        }
+        return null;
+    }
+
+    const ids = await loadMyFavoriteIds();
+
+    if (ids.has(productId)) {
+        const { error } = await db
+            .from("favorites")
+            .delete()
+            .eq("user_id", user.id)
+            .eq("product_id", productId);
+        if (error) {
+            throw error;
+        }
+        ids.delete(productId);
+        return false;
+    }
+
+    const { error } = await db
+        .from("favorites")
+        .insert({ product_id: productId });
+    // 23505 = 已經收藏過了，當作成功
+    if (error && error.code !== "23505") {
+        throw error;
+    }
+    ids.add(productId);
+    return true;
+}
+
+// 做出一個愛心按鈕
+// withText = true：顯示「♡ 加入收藏」（商品頁用）
+// withText = false：只顯示愛心（商品卡片用）
+// onChange：收藏狀態改變後要做什麼（可以不給）
+function makeFavoriteButton(productId, withText, onChange) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = withText ? "favorite-button with-text" : "favorite-button";
+
+    function paint(isFavorite) {
+        button.classList.toggle("on", isFavorite);
+        button.setAttribute("aria-pressed", isFavorite ? "true" : "false");
+        button.setAttribute("aria-label", isFavorite ? "取消收藏" : "加入收藏");
+        if (withText) {
+            button.textContent = isFavorite ? "♥ 已收藏" : "♡ 加入收藏";
+        } else {
+            button.textContent = isFavorite ? "♥" : "♡";
+        }
+    }
+
+    paint(false);
+    loadMyFavoriteIds().then(function(ids) {
+        paint(ids.has(productId));
+    });
+
+    button.addEventListener("click", async function(event) {
+        // 不要讓卡片的連結被點到
+        event.preventDefault();
+        event.stopPropagation();
+
+        button.disabled = true;
+        try {
+            const result = await toggleFavorite(productId);
+            if (result !== null) {
+                paint(result);
+                if (onChange) {
+                    onChange(result);
+                }
+            }
+        } catch (error) {
+            window.alert(translateError(error));
+        }
+        button.disabled = false;
+    });
+
+    return button;
+}
 
 
 // 在表單下方顯示訊息
