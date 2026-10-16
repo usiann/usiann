@@ -33,13 +33,35 @@ const CATEGORIES = [
 // 商品狀況（要跟資料庫裡的設定一樣）
 const CONDITIONS = ["全新", "近全新", "保存良好", "有使用痕跡", "有明顯瑕疵"];
 
-// 檢舉用的 Google 表單
-// REPORT_FORM_URL       表單的網址（結尾是 /viewform）
-// REPORT_PRODUCT_FIELD  表單裡「商品名稱」那一題的編號
-// 如果之後換了一份新表單，這兩行都要一起換
-const REPORT_FORM_URL =
-    "https://docs.google.com/forms/d/e/1FAIpQLSc74mJIX9Z_eLvbN6GgOveEIRzdeXaxrDfwr66ULdOg87pzIQ/viewform";
-const REPORT_PRODUCT_FIELD = "entry.308041687";
+// Web3Forms 的通行碼（Access Key）
+// 填了之後，「聯絡我們」和「檢舉」都會寄一份通知到 usiann.contact@gmail.com
+// 這組通行碼可以公開，放在網頁裡沒關係
+// 要換通行碼時，改下面雙引號裡的內容
+const WEB3FORMS_KEY = "2bb08e17-b8eb-48b1-aef8-ff6fa2ee7e3d";
+
+// 寄通知信到管理員的 Gmail
+// fields 是信件內容，例如 { subject: "標題", "商品": "花小兔吊飾" }
+// 寄信失敗不會影響網站（資料庫裡一樣有紀錄）
+async function sendEmailNotice(fields) {
+    if (!WEB3FORMS_KEY) {
+        return;
+    }
+    try {
+        await fetch("https://api.web3forms.com/submit", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "Accept": "application/json"
+            },
+            body: JSON.stringify(Object.assign(
+                { access_key: WEB3FORMS_KEY, from_name: "usiann 網站通知" },
+                fields
+            ))
+        });
+    } catch (error) {
+        // 寄信失敗不用處理，管理頁一樣看得到
+    }
+}
 
 // 商品照片放在 Supabase 的哪個圖片空間
 const IMAGE_BUCKET = "product-images";
@@ -129,6 +151,15 @@ function translateError(error) {
     if (message.includes("profiles_nickname_check")) {
         return "暱稱要 1 到 20 個字";
     }
+    if (message.includes("contact_messages_email_check")) {
+        return "email 格式不正確";
+    }
+    if (message.includes("contact_messages_subject_check")) {
+        return "標題要 1 到 100 個字";
+    }
+    if (message.includes("contact_messages_message_check")) {
+        return "內容要 1 到 2000 個字";
+    }
     if (message.includes("row-level security")) {
         return "你沒有權限做這件事，請重新登入再試一次";
     }
@@ -201,6 +232,29 @@ async function renderUserMenu() {
 }
 
 renderUserMenu();
+
+
+// 每一頁的頁尾自動加上「聯絡我們」（用新分頁打開）
+function addContactLink() {
+    const footer = document.querySelector("footer");
+    if (!footer || window.location.pathname.endsWith("contact.html")) {
+        return;
+    }
+
+    const line = document.createElement("p");
+    const link = document.createElement("a");
+    link.href = "contact.html";
+    link.target = "_blank";
+    link.rel = "noopener";
+    link.className = "footer-link";
+    link.textContent = "聯絡我們";
+    line.appendChild(link);
+
+    // 放在免責聲明的上面（沒有免責聲明就放最後）
+    footer.insertBefore(line, footer.querySelector(".disclaimer"));
+}
+
+addContactLink();
 
 
 // =========================================================

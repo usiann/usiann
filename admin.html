@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>管理頁｜usiann</title>
-    <link rel="stylesheet" href="style.css?v=8">
+    <link rel="stylesheet" href="style.css?v=10">
 </head>
 
 <body>
@@ -24,15 +24,37 @@
 
             <div id="admin-content" hidden>
 
+                <!-- 快速跳到各區 -->
+                <nav class="admin-jump">
+                    <a href="#pending-section" id="jump-pending">待審核</a>
+                    <a href="#reports-section" id="jump-reports">被檢舉</a>
+                    <a href="#messages-section" id="jump-messages">聯絡訊息</a>
+                    <a href="#sellers-section">賣家管理</a>
+                </nav>
+
                 <!-- ===== 等待審核的商品 ===== -->
-                <section class="admin-section">
+                <section id="pending-section" class="admin-section">
                     <h2 id="pending-title">等待審核的商品</h2>
                     <p id="pending-empty" class="empty-hint" hidden>目前沒有等待審核的商品 ♡</p>
                     <div id="pending-list"></div>
                 </section>
 
+                <!-- ===== 被檢舉的商品 ===== -->
+                <section id="reports-section" class="admin-section">
+                    <h2 id="reports-title">被檢舉的商品</h2>
+                    <p id="reports-empty" class="empty-hint" hidden>目前沒有被檢舉的商品 ♡</p>
+                    <div id="reports-list"></div>
+                </section>
+
+                <!-- ===== 聯絡我們的訊息 ===== -->
+                <section id="messages-section" class="admin-section">
+                    <h2 id="messages-title">聯絡我們的訊息</h2>
+                    <p id="messages-empty" class="empty-hint" hidden>目前沒有未處理的訊息 ♡</p>
+                    <div id="messages-list"></div>
+                </section>
+
                 <!-- ===== 賣家管理 ===== -->
-                <section class="admin-section">
+                <section id="sellers-section" class="admin-section">
                     <h2>賣家管理</h2>
                     <form id="seller-search" class="admin-search">
                         <input type="text" id="seller-keyword" placeholder="輸入暱稱或 email 搜尋（空白會列出最新的 50 位）">
@@ -51,7 +73,7 @@
 
     <!-- Supabase 工具（固定版本，避免它自己更新後網站壞掉） -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-    <script src="common.js?v=6"></script>
+    <script src="common.js?v=8"></script>
 
     <script>
         // 退回時可以直接點選的原因
@@ -87,6 +109,8 @@
 
             document.getElementById("admin-content").hidden = false;
             loadPending();
+            loadReports();
+            loadMessages();
             loadSellers("");
         }
 
@@ -110,6 +134,7 @@
 
             document.getElementById("pending-title").textContent =
                 "等待審核的商品（" + data.length + " 件）";
+            document.getElementById("jump-pending").textContent = "待審核 " + data.length;
             document.getElementById("pending-empty").hidden = data.length > 0;
 
             const list = document.getElementById("pending-list");
@@ -279,6 +304,249 @@
 
 
         // =====================================================
+        // 被檢舉的商品
+        // =====================================================
+        async function loadReports() {
+            const { data, error } = await db
+                .from("reports")
+                .select("id, reasons, other_reason, details, created_at, reporter:profiles(nickname), product:products(id, name, status, images, seller_id, seller:profiles(nickname))")
+                .order("created_at", { ascending: true });
+
+            if (error) {
+                showMessage(pageMessage, translateError(error), "error");
+                return;
+            }
+
+            // 把同一個商品的檢舉放在一起
+            // 已經下架的商品不用再處理，不顯示
+            const groups = new Map();
+            data.forEach(function(report) {
+                const product = report.product;
+                if (!product || product.status === "removed") {
+                    return;
+                }
+                if (!groups.has(product.id)) {
+                    groups.set(product.id, { product: product, reports: [] });
+                }
+                groups.get(product.id).reports.push(report);
+            });
+
+            // 被檢舉越多次的排越前面
+            const list = Array.from(groups.values()).sort(function(a, b) {
+                return b.reports.length - a.reports.length;
+            });
+
+            document.getElementById("reports-title").textContent =
+                "被檢舉的商品（" + list.length + " 件）";
+            document.getElementById("jump-reports").textContent = "被檢舉 " + list.length;
+            document.getElementById("reports-empty").hidden = list.length > 0;
+
+            const container = document.getElementById("reports-list");
+            container.textContent = "";
+            list.forEach(function(group) {
+                container.appendChild(makeReportCard(group.product, group.reports));
+            });
+        }
+
+        function makeReportCard(product, reports) {
+            const card = document.createElement("div");
+            card.className = "review-card";
+
+            // 商品照片和名稱（點了用新分頁看商品頁）
+            const header = document.createElement("div");
+            header.className = "report-header";
+
+            const img = document.createElement("img");
+            img.src = getImageUrl(product.images[0]);
+            img.alt = product.name;
+
+            const titleBox = document.createElement("div");
+
+            const name = document.createElement("a");
+            name.href = "product.html?id=" + product.id;
+            name.target = "_blank";
+            name.rel = "noopener";
+            name.className = "seller-link";
+            name.textContent = product.name;
+
+            const info = document.createElement("p");
+            info.className = "status";
+            info.textContent =
+                "賣家：" + (product.seller ? product.seller.nickname : "—") +
+                "・" + reports.length + " 人檢舉" +
+                (product.status === "hidden" ? "・⏸️ 已自動隱藏" : "・目前仍公開");
+
+            titleBox.append(name, info);
+            header.append(img, titleBox);
+
+            // 每一筆檢舉
+            const reportList = document.createElement("ul");
+            reportList.className = "report-list";
+            reports.forEach(function(report) {
+                const item = document.createElement("li");
+
+                const reasons = report.reasons.map(function(reason) {
+                    return reason === "其他" ? "其他：" + report.other_reason : reason;
+                }).join("、");
+
+                const reasonLine = document.createElement("strong");
+                reasonLine.textContent = reasons;
+
+                const meta = document.createElement("span");
+                meta.className = "report-meta";
+                meta.textContent =
+                    "（" + (report.reporter ? report.reporter.nickname : "—") + "・" +
+                    new Date(report.created_at).toLocaleString("zh-TW") + "）";
+
+                item.append(reasonLine, meta);
+
+                if (report.details) {
+                    const details = document.createElement("p");
+                    details.textContent = report.details;
+                    item.appendChild(details);
+                }
+
+                reportList.appendChild(item);
+            });
+
+            // 處理按鈕
+            const actions = document.createElement("div");
+            actions.className = "product-row-actions";
+
+            const cardMessage = document.createElement("p");
+            cardMessage.className = "form-message";
+            cardMessage.hidden = true;
+
+            const choices = [
+                { action: "dismiss", text: "✅ 檢舉不成立", className: "small-button" },
+                { action: "remove", text: "🚫 下架商品", className: "small-button danger" },
+                { action: "ban", text: "⛔ 下架並停權賣家", className: "small-button danger" }
+            ];
+
+            choices.forEach(function(choice) {
+                const button = document.createElement("button");
+                button.type = "button";
+                button.className = choice.className;
+                button.textContent = choice.text;
+                button.addEventListener("click", function() {
+                    handleReport(product, choice.action, card, cardMessage);
+                });
+                actions.appendChild(button);
+            });
+
+            card.append(header, reportList, actions, cardMessage);
+            return card;
+        }
+
+        async function handleReport(product, action, card, cardMessage) {
+            const sellerName = product.seller ? product.seller.nickname : "這位賣家";
+            const confirmText = {
+                dismiss: "確定「" + product.name + "」的檢舉不成立嗎？\n商品會恢復公開，檢舉紀錄會清掉。",
+                remove: "確定要下架「" + product.name + "」嗎？\n" + sellerName + " 的違規次數會 +1，並降回新手賣家。",
+                ban: "確定要下架「" + product.name + "」並停權「" + sellerName + "」嗎？\n他所有的商品都會下架，之後也不能再上架。"
+            };
+
+            if (!window.confirm(confirmText[action])) {
+                return;
+            }
+
+            card.querySelectorAll("button").forEach(function(button) {
+                button.disabled = true;
+            });
+
+            const { error } = await db.rpc("admin_handle_report", {
+                target_id: product.id,
+                action: action
+            });
+
+            if (error) {
+                card.querySelectorAll("button").forEach(function(button) {
+                    button.disabled = false;
+                });
+                showMessage(cardMessage, translateError(error), "error");
+                return;
+            }
+
+            const doneText = {
+                dismiss: "已處理：「" + product.name + "」檢舉不成立，商品恢復公開",
+                remove: "已下架「" + product.name + "」",
+                ban: "已下架「" + product.name + "」並停權「" + sellerName + "」"
+            };
+            showMessage(pageMessage, doneText[action], "success");
+            loadReports();
+            loadSellers(document.getElementById("seller-keyword").value);
+        }
+
+
+        // =====================================================
+        // 聯絡我們的訊息（只顯示還沒處理的）
+        // =====================================================
+        async function loadMessages() {
+            const { data, error } = await db
+                .from("contact_messages")
+                .select("id, topics, subject, message, email, user_id, created_at")
+                .eq("handled", false)
+                .order("created_at", { ascending: true });
+
+            if (error) {
+                showMessage(pageMessage, translateError(error), "error");
+                return;
+            }
+
+            document.getElementById("messages-title").textContent =
+                "聯絡我們的訊息（" + data.length + " 則未處理）";
+            document.getElementById("jump-messages").textContent = "聯絡訊息 " + data.length;
+            document.getElementById("messages-empty").hidden = data.length > 0;
+
+            const container = document.getElementById("messages-list");
+            container.textContent = "";
+            data.forEach(function(item) {
+                container.appendChild(makeMessageCard(item));
+            });
+        }
+
+        function makeMessageCard(item) {
+            const card = document.createElement("div");
+            card.className = "review-card";
+
+            const subject = document.createElement("h3");
+            subject.textContent = item.subject;
+
+            const details = document.createElement("dl");
+            details.className = "account-info";
+            addDetail(details, "問題方向", (item.topics || []).join("、"));
+            addDetail(details, "Email", item.email);
+            addDetail(details, "會員", item.user_id ? "有登入的會員" : "沒有登入");
+            addDetail(details, "時間", new Date(item.created_at).toLocaleString("zh-TW"));
+
+            const content = document.createElement("p");
+            content.className = "review-description";
+            content.textContent = item.message;
+
+            const doneButton = document.createElement("button");
+            doneButton.type = "button";
+            doneButton.className = "small-button";
+            doneButton.textContent = "✅ 標示已處理";
+            doneButton.addEventListener("click", async function() {
+                doneButton.disabled = true;
+                const { error } = await db
+                    .from("contact_messages")
+                    .update({ handled: true })
+                    .eq("id", item.id);
+                if (error) {
+                    doneButton.disabled = false;
+                    showMessage(pageMessage, translateError(error), "error");
+                    return;
+                }
+                loadMessages();
+            });
+
+            card.append(subject, details, content, doneButton);
+            return card;
+        }
+
+
+        // =====================================================
         // 賣家管理
         // =====================================================
         document.getElementById("seller-search").addEventListener("submit", function(event) {
@@ -358,6 +626,42 @@
                 loadSellers(document.getElementById("seller-keyword").value);
             });
             actions.appendChild(levelButton);
+
+            // 停權／解除停權（不能停權自己）
+            if (seller.id !== currentUser.id) {
+                const banButton = document.createElement("button");
+                banButton.type = "button";
+                banButton.className = "small-button danger";
+                banButton.textContent = seller.is_banned ? "解除停權" : "停權";
+                banButton.addEventListener("click", async function() {
+                    const willBan = !seller.is_banned;
+                    const question = willBan
+                        ? "確定要停權「" + seller.nickname + "」嗎？\n他所有的商品都會下架，之後也不能再上架。"
+                        : "確定要解除「" + seller.nickname + "」的停權嗎？\n之前被下架的商品不會自動恢復。";
+                    if (!window.confirm(question)) {
+                        return;
+                    }
+
+                    banButton.disabled = true;
+                    const { error } = await db.rpc("admin_set_banned", {
+                        target_id: seller.id,
+                        banned: willBan
+                    });
+                    if (error) {
+                        banButton.disabled = false;
+                        showMessage(pageMessage, translateError(error), "error");
+                        return;
+                    }
+                    showMessage(
+                        pageMessage,
+                        (willBan ? "已停權「" : "已解除停權「") + seller.nickname + "」",
+                        "success"
+                    );
+                    loadSellers(document.getElementById("seller-keyword").value);
+                    loadReports();
+                });
+                actions.appendChild(banButton);
+            }
 
             row.append(info, actions);
             return row;

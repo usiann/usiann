@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>聯絡我們｜usiann</title>
+    <link rel="stylesheet" href="style.css?v=10">
+</head>
+
+<body>
+
+    <!-- 網站標題（點了回首頁） -->
+    <header>
+        <div id="user-menu" class="user-menu"></div>
+        <h1><a href="index.html" class="home-link">usiann ⋆˚꩜｡</a></h1>
+        <p>有啥？</p>
+    </header>
+
+    <main class="form-page">
+        <div class="form-card wide">
+            <h2>聯絡我們</h2>
+            <p class="form-hint">有任何問題或建議，都歡迎告訴我們 ♡ 我們會用你留下的 email 回覆你。</p>
+
+            <form id="contact-form">
+                <fieldset class="topic-field">
+                    <legend>問題的方向（可以勾很多個）</legend>
+                    <!-- 勾選項目由下方程式產生 -->
+                    <div id="topics" class="topic-list"></div>
+                </fieldset>
+
+                <label>
+                    標題（最多 100 個字）
+                    <input type="text" id="subject" required maxlength="100">
+                </label>
+
+                <label>
+                    內容（最多 2000 個字）
+                    <textarea id="message" rows="7" required maxlength="2000"></textarea>
+                </label>
+
+                <label>
+                    你的 email（我們會回信到這裡）
+                    <input type="email" id="email" required maxlength="200" autocomplete="email">
+                </label>
+
+                <!-- 防機器人：真人看不到這一格，機器人會亂填 -->
+                <input type="text" id="website" class="trap-field" tabindex="-1" autocomplete="off" aria-hidden="true">
+
+                <button type="submit" id="submit-button" class="primary-button">送出</button>
+            </form>
+
+            <p id="form-message" class="form-message" hidden></p>
+        </div>
+    </main>
+
+    <footer>
+        <p>♡ usiann・二手收藏分享 ♡</p>
+    </footer>
+
+    <!-- Supabase 工具（固定版本，避免它自己更新後網站壞掉） -->
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
+    <script src="common.js?v=8"></script>
+
+    <script>
+        // 問題的方向
+        // ⚠️ 要跟資料庫 06_contact_topics.sql 裡的一樣
+        const CONTACT_TOPICS = [
+            "帳號、登入問題",
+            "上架、審核問題",
+            "檢舉、安全問題",
+            "網站功能錯誤",
+            "建議、合作",
+            "其他"
+        ];
+
+        const form = document.getElementById("contact-form");
+        const message = document.getElementById("form-message");
+
+        // 產生「問題的方向」勾選項目
+        const topicsBox = document.getElementById("topics");
+        CONTACT_TOPICS.forEach(function(topic) {
+            const label = document.createElement("label");
+            label.className = "topic-option";
+
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.value = topic;
+
+            label.append(checkbox, topic);
+            topicsBox.appendChild(label);
+        });
+
+        // 有登入的話，自動填好 email
+        getCurrentUser().then(function(user) {
+            if (user && user.email) {
+                document.getElementById("email").value = user.email;
+            }
+        });
+
+        form.addEventListener("submit", async function(event) {
+            event.preventDefault();
+
+            // 防機器人的格子被填了，就假裝成功
+            if (document.getElementById("website").value !== "") {
+                form.hidden = true;
+                showMessage(message, "已收到你的訊息，謝謝你 ♡", "success");
+                return;
+            }
+
+            const topics = Array.from(topicsBox.querySelectorAll("input:checked"))
+                .map(function(checkbox) { return checkbox.value; });
+            const subject = document.getElementById("subject").value.trim();
+            const content = document.getElementById("message").value.trim();
+            const email = document.getElementById("email").value.trim();
+
+            if (topics.length === 0) {
+                showMessage(message, "請至少勾選一個問題的方向", "error");
+                return;
+            }
+            if (subject === "" || content === "") {
+                showMessage(message, "請填寫標題和內容", "error");
+                return;
+            }
+
+            const submitButton = document.getElementById("submit-button");
+            submitButton.disabled = true;
+            submitButton.textContent = "送出中…";
+
+            // 1. 存進資料庫（管理頁看得到）
+            const { error } = await db.from("contact_messages").insert({
+                topics: topics,
+                subject: subject,
+                message: content,
+                email: email
+            });
+
+            if (error) {
+                submitButton.disabled = false;
+                submitButton.textContent = "送出";
+                showMessage(message, translateError(error), "error");
+                return;
+            }
+
+            // 2. 寄一份到 Gmail（通行碼設定在 common.js；失敗也沒關係，資料庫裡已經有了）
+            await sendEmailNotice({
+                // 信件標題，例如「[上架、審核問題] 我的商品一直沒通過」
+                subject: "[" + topics.join("、") + "] " + subject,
+                from_name: "usiann 聯絡我們",
+                // 在 Gmail 按「回覆」就會回到這個 email
+                email: email,
+                "問題的方向": topics.join("、"),
+                message: content
+            });
+
+            form.hidden = true;
+            showMessage(message, "已收到你的訊息，我們會盡快回覆到 " + email + " ♡", "success");
+        });
+    </script>
+
+</body>
+</html>

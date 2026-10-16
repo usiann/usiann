@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>商品｜usiann</title>
-    <link rel="stylesheet" href="style.css?v=8">
+    <link rel="stylesheet" href="style.css?v=10">
 </head>
 
 <body>
@@ -72,17 +72,39 @@
 
                 <p id="share-message" class="form-message" hidden></p>
 
-                <!-- 檢舉此商品：用新分頁打開 Google 表單，商品名稱會自動填好 -->
-                <a
-                    id="report-button"
-                    class="report-button"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                >檢舉此商品</a>
+                <!-- 檢舉此商品：點了跳出檢舉視窗（自己的商品不會顯示） -->
+                <button type="button" id="report-button" class="report-button text-button" hidden>檢舉此商品</button>
             </div>
 
         </div>
     </main>
+
+    <!-- ===== 檢舉視窗 ===== -->
+    <dialog id="report-dialog" class="report-dialog">
+        <form id="report-form" class="report-form">
+            <h2>檢舉商品</h2>
+            <p id="report-product-name" class="form-hint"></p>
+
+            <fieldset>
+                <legend>發生什麼事？（可以勾很多個）</legend>
+                <!-- 勾選項目由下方程式產生 -->
+                <div id="report-reasons" class="report-reasons"></div>
+            </fieldset>
+
+            <label>
+                詳細說明（可以不寫，最多 500 個字）
+                <textarea id="report-details" rows="4" maxlength="500"
+                    placeholder="例如：標籤的字體和正版不一樣"></textarea>
+            </label>
+
+            <p id="report-message" class="form-message" hidden></p>
+
+            <div class="dialog-actions">
+                <button type="button" id="report-cancel" class="secondary-button">取消</button>
+                <button type="submit" id="report-submit" class="primary-button">送出檢舉</button>
+            </div>
+        </form>
+    </dialog>
 
     <footer>
         <p>♡ usiann・二手收藏分享 ♡</p>
@@ -102,7 +124,7 @@
 
     <!-- Supabase 工具（固定版本，避免它自己更新後網站壞掉） -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-    <script src="common.js?v=6"></script>
+    <script src="common.js?v=8"></script>
 
     <script>
         // 商品不是「已公開」時（只有賣家本人和管理員看得到），上面顯示的提醒
@@ -223,11 +245,13 @@
                 document.getElementById("favorite-slot").appendChild(favoriteButton);
             }
 
-            // 檢舉連結：自動把商品名稱填進表單
-            document.getElementById("report-button").href =
-                REPORT_FORM_URL +
-                "?usp=pp_url&" + REPORT_PRODUCT_FIELD + "=" +
-                encodeURIComponent(product.name);
+            // 檢舉按鈕：公開的商品才能檢舉，自己的商品不顯示
+            const user = await getCurrentUser();
+            const isMine = user && user.id === product.seller_id;
+            if (product.status === "published" && !isMine) {
+                currentProduct = product;
+                document.getElementById("report-button").hidden = false;
+            }
 
             document.getElementById("product").hidden = false;
         }
@@ -254,6 +278,155 @@
         }
 
         loadProduct();
+
+
+        // =====================================================
+        // 檢舉
+        // =====================================================
+
+        // 檢舉原因
+        // ⚠️ 要跟資料庫 05_reports.sql 裡的原因一樣，「其他」要放最後
+        const REPORT_REASONS = [
+            "疑似仿冒品",
+            "商品資訊和實際不符",
+            "賣貨便連結打不開",
+            "價格異常",
+            "不當內容",
+            "其他"
+        ];
+
+        // 正在看的商品（檢舉時要用）
+        let currentProduct = null;
+
+        const reportDialog = document.getElementById("report-dialog");
+        const reportForm = document.getElementById("report-form");
+        const reportMessage = document.getElementById("report-message");
+
+        // 產生勾選項目
+        const reasonsBox = document.getElementById("report-reasons");
+        let otherInput = null;
+        let otherCheckbox = null;
+
+        REPORT_REASONS.forEach(function(reason) {
+            const label = document.createElement("label");
+            label.className = "checkbox-label";
+
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.value = reason;
+            label.appendChild(checkbox);
+
+            if (reason === "其他") {
+                // 其他：＿＿＿＿（打字時自動勾起來）
+                label.append("其他：");
+                otherInput = document.createElement("input");
+                otherInput.type = "text";
+                otherInput.maxLength = 100;
+                otherInput.className = "other-input";
+                otherInput.setAttribute("aria-label", "其他原因");
+                otherInput.addEventListener("input", function() {
+                    otherCheckbox.checked = otherInput.value.trim() !== "";
+                });
+                otherCheckbox = checkbox;
+                label.appendChild(otherInput);
+            } else {
+                label.append(reason);
+            }
+
+            reasonsBox.appendChild(label);
+        });
+
+        // 按「檢舉此商品」
+        document.getElementById("report-button").addEventListener("click", async function() {
+            const user = await getCurrentUser();
+            if (!user) {
+                if (window.confirm("登入後才能檢舉喔 ♡\n要現在去登入嗎？")) {
+                    window.location.href = "login.html";
+                }
+                return;
+            }
+
+            reportForm.reset();
+            reportMessage.hidden = true;
+            document.getElementById("report-submit").hidden = false;
+            document.getElementById("report-cancel").textContent = "取消";
+            document.getElementById("report-product-name").textContent = "商品：" + currentProduct.name;
+            reportDialog.showModal();
+        });
+
+        // 關閉視窗：按「取消」或點視窗外面
+        document.getElementById("report-cancel").addEventListener("click", function() {
+            reportDialog.close();
+        });
+        reportDialog.addEventListener("click", function(event) {
+            if (event.target === reportDialog) {
+                reportDialog.close();
+            }
+        });
+
+        // 送出檢舉
+        reportForm.addEventListener("submit", async function(event) {
+            event.preventDefault();
+
+            const reasons = Array.from(reasonsBox.querySelectorAll("input[type=checkbox]:checked"))
+                .map(function(checkbox) { return checkbox.value; });
+            const otherReason = otherInput.value.trim();
+
+            if (reasons.length === 0) {
+                showMessage(reportMessage, "請至少勾選一個原因", "error");
+                return;
+            }
+            if (reasons.includes("其他") && otherReason === "") {
+                showMessage(reportMessage, "選「其他」時，請寫下原因", "error");
+                return;
+            }
+
+            const submitButton = document.getElementById("report-submit");
+            submitButton.disabled = true;
+
+            const { error } = await db.from("reports").insert({
+                product_id: currentProduct.id,
+                reasons: reasons,
+                other_reason: reasons.includes("其他") ? otherReason : "",
+                details: document.getElementById("report-details").value.trim()
+            });
+
+            submitButton.disabled = false;
+
+            if (error) {
+                // 23505 = 已經檢舉過了
+                if (error.code === "23505") {
+                    showMessage(reportMessage, "你已經檢舉過這個商品了，我們會盡快確認 ♡", "success");
+                } else {
+                    showMessage(reportMessage, translateError(error), "error");
+                    return;
+                }
+            } else {
+                showMessage(reportMessage, "已收到你的檢舉，謝謝你幫忙維護安全的收藏環境 ♡", "success");
+
+                // 寄一份通知到管理員的 Gmail（只寫暱稱，不寫檢舉人的 email）
+                const reasonText = reasons.map(function(reason) {
+                    return reason === "其他" ? "其他：" + otherReason : reason;
+                }).join("、");
+                const reporter = await getMyProfile();
+                const details = document.getElementById("report-details").value.trim();
+
+                sendEmailNotice({
+                    subject: "[檢舉] " + currentProduct.name,
+                    "商品": currentProduct.name,
+                    "商品網址": SITE_BASE + "product.html?id=" + currentProduct.id,
+                    "檢舉原因": reasonText,
+                    "詳細說明": details || "（沒有寫）",
+                    "檢舉人": reporter ? reporter.nickname : "—",
+                    "到管理頁處理": SITE_BASE + "admin.html#reports-section",
+                    message: "有人檢舉了「" + currentProduct.name + "」，原因：" + reasonText
+                });
+            }
+
+            // 送出後只留「關閉」按鈕
+            submitButton.hidden = true;
+            document.getElementById("report-cancel").textContent = "關閉";
+        });
 
 
         // ===== 分享 =====
