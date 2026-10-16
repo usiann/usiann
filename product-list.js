@@ -58,6 +58,14 @@ function makeCard(product, onFavoriteChange) {
     img.loading = "lazy";
     imageBox.appendChild(img);
 
+    // 預購、代購：照片左上角放小標籤（現貨不放，看起來比較乾淨）
+    if (product.sale_type && product.sale_type !== "in_stock") {
+        const badge = document.createElement("span");
+        badge.className = "sale-badge";
+        badge.textContent = getSaleTypeName(product.sale_type);
+        imageBox.appendChild(badge);
+    }
+
     // 已售出：照片蓋上 SOLD OUT
     if (product.is_sold) {
         const overlay = document.createElement("div");
@@ -172,7 +180,7 @@ function createProductLoader(options) {
 
         let query = db
             .from("products")
-            .select("id, name, category, condition, price, description, images, is_sold, created_at", { count: "exact" })
+            .select("id, name, category, condition, price, description, images, is_sold, created_at, sale_type", { count: "exact" })
             .eq("status", "published");
 
         query = options.applyFilters(query);

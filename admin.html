@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>管理頁｜usiann</title>
-    <link rel="stylesheet" href="style.css?v=10">
+    <link rel="stylesheet" href="style.css?v=11">
 </head>
 
 <body>
@@ -73,16 +73,20 @@
 
     <!-- Supabase 工具（固定版本，避免它自己更新後網站壞掉） -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-    <script src="common.js?v=8"></script>
+    <script src="common.js?v=9"></script>
 
     <script>
         // 退回時可以直接點選的原因
         // 想新增或修改原因，改這裡就好
         const REJECT_REASONS = [
-            "照片不清楚或不是實品",
+            "照片不清楚",
+            "現貨沒有使用實品照片",
+            "盜用其他賣家的照片",
             "疑似仿冒品",
             "商品資訊不完整",
+            "預購、代購沒有寫出貨時間",
             "賣貨便連結有問題",
+            "屬於禁止刊登的商品",
             "不符合使用規範"
         ];
 
@@ -123,7 +127,7 @@
         async function loadPending() {
             const { data, error } = await db
                 .from("products")
-                .select("id, name, category, condition, price, description, link, images, created_at, seller:profiles(nickname, seller_level)")
+                .select("id, name, category, condition, price, description, link, images, created_at, sale_type, seller:profiles(nickname, seller_level)")
                 .eq("status", "pending")
                 .order("created_at", { ascending: true });
 
@@ -175,6 +179,9 @@
                 (product.seller ? product.seller.nickname : "？") + "（" +
                 (product.seller && product.seller.seller_level === "trusted" ? "🌷 信任賣家" : "🌱 新手賣家") + "）");
             addDetail(details, "角色分類", getCategoryName(product.category));
+            addDetail(details, "商品類型",
+                getSaleTypeName(product.sale_type) +
+                (product.sale_type === "in_stock" ? "（照片要是實品）" : "（可用官方照片，說明要有出貨時間）"));
             addDetail(details, "商品狀況", product.condition);
             addDetail(details, "價格", "NT$ " + product.price);
             addDetail(details, "送出時間", new Date(product.created_at).toLocaleString("zh-TW"));

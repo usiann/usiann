@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>商品｜usiann</title>
-    <link rel="stylesheet" href="style.css?v=10">
+    <link rel="stylesheet" href="style.css?v=11">
 </head>
 
 <body>
@@ -42,6 +42,7 @@
                 <div class="product-tags">
                     <a id="product-category" class="tag" href="#"></a>
                     <span id="product-condition" class="tag"></span>
+                    <span id="product-sale-type" class="tag"></span>
                 </div>
 
                 <p id="product-price" class="product-price"></p>
@@ -124,7 +125,7 @@
 
     <!-- Supabase 工具（固定版本，避免它自己更新後網站壞掉） -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-    <script src="common.js?v=8"></script>
+    <script src="common.js?v=9"></script>
 
     <script>
         // 商品不是「已公開」時（只有賣家本人和管理員看得到），上面顯示的提醒
@@ -142,7 +143,7 @@
             if (productId) {
                 const { data } = await db
                     .from("products")
-                    .select("id, name, category, condition, price, description, link, images, status, is_sold, created_at, seller_id, seller:profiles(nickname, seller_level)")
+                    .select("id, name, category, condition, price, description, link, images, status, is_sold, created_at, sale_type, seller_id, seller:profiles(nickname, seller_level)")
                     .eq("id", productId)
                     .maybeSingle();
                 product = data;
@@ -203,6 +204,13 @@
             categoryTag.href = "index.html?category=" + product.category;
 
             document.getElementById("product-condition").textContent = product.condition;
+
+            // 商品類型：預購、代購用比較明顯的顏色
+            const saleTypeTag = document.getElementById("product-sale-type");
+            saleTypeTag.textContent = getSaleTypeName(product.sale_type);
+            if (product.sale_type !== "in_stock") {
+                saleTypeTag.classList.add("tag-highlight");
+            }
             document.getElementById("product-price").textContent =
                 "NT$ " + product.price.toLocaleString("zh-TW");
             document.getElementById("product-description").textContent =

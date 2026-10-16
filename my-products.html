@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>我的商品｜usiann</title>
-    <link rel="stylesheet" href="style.css?v=10">
+    <link rel="stylesheet" href="style.css?v=11">
 </head>
 
 <body>
@@ -41,7 +41,7 @@
 
     <!-- Supabase 工具（固定版本，避免它自己更新後網站壞掉） -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-    <script src="common.js?v=8"></script>
+    <script src="common.js?v=9"></script>
 
     <script>
         const message = document.getElementById("form-message");
@@ -71,7 +71,7 @@
 
             const { data, error } = await db
                 .from("products")
-                .select("id, name, category, condition, price, images, status, reject_reason, is_sold, created_at")
+                .select("id, name, category, condition, price, images, status, reject_reason, is_sold, created_at, sale_type")
                 .eq("seller_id", currentUser.id)
                 .order("created_at", { ascending: false });
 
@@ -113,6 +113,7 @@
             const details = document.createElement("p");
             details.textContent =
                 getCategoryName(product.category) + "・" +
+                getSaleTypeName(product.sale_type) + "・" +
                 product.condition + "・NT$ " + product.price;
 
             const status = document.createElement("p");

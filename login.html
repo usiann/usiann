@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>登入 / 註冊｜usiann</title>
-    <link rel="stylesheet" href="style.css?v=10">
+    <link rel="stylesheet" href="style.css?v=11">
 </head>
 
 <body>
@@ -58,7 +58,13 @@
                 </label>
                 <label class="checkbox-label">
                     <input type="checkbox" id="signup-agree" required>
-                    我同意使用規範：不販售仿冒品，不刊登不實資訊。違規的商品會被下架，帳號可能被停權。
+                    <span>
+                        我已閱讀並同意
+                        <a href="terms.html" target="_blank" rel="noopener" class="seller-link">使用規範</a>
+                        和
+                        <a href="privacy.html" target="_blank" rel="noopener" class="seller-link">隱私權政策</a>。
+                        不販售仿冒品、不刊登不實資訊，違規的商品會被下架，帳號可能被停權。
+                    </span>
                 </label>
                 <button type="submit" class="primary-button">註冊</button>
             </form>
@@ -80,7 +86,12 @@
             <!-- Google 登入 -->
             <div class="divider"><span>或</span></div>
             <button type="button" id="google-button" class="google-button">使用 Google 帳號登入</button>
-            <p class="form-hint">第一次用 Google 登入會自動建立帳號，並表示你同意使用規範。</p>
+            <p class="form-hint">
+                第一次用 Google 登入會自動建立帳號，並表示你同意
+                <a href="terms.html" target="_blank" rel="noopener" class="seller-link">使用規範</a>
+                和
+                <a href="privacy.html" target="_blank" rel="noopener" class="seller-link">隱私權政策</a>。
+            </p>
 
         </div>
     </main>
@@ -91,7 +102,7 @@
 
     <!-- Supabase 工具（固定版本，避免它自己更新後網站壞掉） -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-    <script src="common.js?v=8"></script>
+    <script src="common.js?v=9"></script>
 
     <script>
         const loginForm = document.getElementById("login-form");

@@ -30,6 +30,19 @@ const CATEGORIES = [
     { id: "kuromi", name: "酷洛米", icon: "💜" }
 ];
 
+// 商品類型（要跟資料庫裡的設定一樣）
+const SALE_TYPES = [
+    { id: "in_stock", name: "現貨" },
+    { id: "preorder", name: "預購" },
+    { id: "proxy", name: "代購" }
+];
+
+// 用代號找商品類型名稱，例如 "preorder" → "預購"
+function getSaleTypeName(id) {
+    const type = SALE_TYPES.find(function(t) { return t.id === id; });
+    return type ? type.name : "現貨";
+}
+
 // 商品狀況（要跟資料庫裡的設定一樣）
 const CONDITIONS = ["全新", "近全新", "保存良好", "有使用痕跡", "有明顯瑕疵"];
 
@@ -234,27 +247,43 @@ async function renderUserMenu() {
 renderUserMenu();
 
 
-// 每一頁的頁尾自動加上「聯絡我們」（用新分頁打開）
-function addContactLink() {
+// 每一頁的頁尾自動加上「隱私權政策｜使用規範｜聯絡我們」
+// 聯絡我們用新分頁打開
+function addFooterLinks() {
     const footer = document.querySelector("footer");
-    if (!footer || window.location.pathname.endsWith("contact.html")) {
+    if (!footer) {
         return;
     }
 
+    const links = [
+        { href: "privacy.html", text: "隱私權政策", newTab: false },
+        { href: "terms.html", text: "使用規範", newTab: false },
+        { href: "contact.html", text: "聯絡我們", newTab: true }
+    ];
+
     const line = document.createElement("p");
-    const link = document.createElement("a");
-    link.href = "contact.html";
-    link.target = "_blank";
-    link.rel = "noopener";
-    link.className = "footer-link";
-    link.textContent = "聯絡我們";
-    line.appendChild(link);
+    line.className = "footer-links";
+
+    links.forEach(function(item, index) {
+        if (index > 0) {
+            line.append("｜");
+        }
+        const link = document.createElement("a");
+        link.href = item.href;
+        link.className = "footer-link";
+        link.textContent = item.text;
+        if (item.newTab) {
+            link.target = "_blank";
+            link.rel = "noopener";
+        }
+        line.appendChild(link);
+    });
 
     // 放在免責聲明的上面（沒有免責聲明就放最後）
     footer.insertBefore(line, footer.querySelector(".disclaimer"));
 }
 
-addContactLink();
+addFooterLinks();
 
 
 // =========================================================

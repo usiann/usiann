@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>上架商品｜usiann</title>
-    <link rel="stylesheet" href="style.css?v=10">
+    <link rel="stylesheet" href="style.css?v=11">
 </head>
 
 <body>
@@ -27,6 +27,13 @@
             <p id="level-hint" class="level-hint"></p>
 
             <form id="sell-form">
+
+                <!-- 商品類型：現貨／預購／代購 -->
+                <div class="field">
+                    <span class="field-label">商品類型</span>
+                    <div id="sale-types" class="topic-list"></div>
+                    <p id="sale-type-hint" class="sale-type-hint"></p>
+                </div>
 
                 <!-- 照片 -->
                 <div class="field">
@@ -82,7 +89,7 @@
 
     <!-- Supabase 工具（固定版本，避免它自己更新後網站壞掉） -->
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.min.js"></script>
-    <script src="common.js?v=8"></script>
+    <script src="common.js?v=9"></script>
 
     <script>
         // 最多幾張照片
@@ -103,6 +110,50 @@
         // 已經上傳過的照片：{ path: "照片位置" }
         // 剛選的新照片：   { blob: 縮小後的照片, previewUrl: "預覽用網址" }
         let photos = [];
+
+
+        // ===== 商品類型 =====
+        // 選不同類型時，顯示不同的照片規則
+        const SALE_TYPE_HINTS = {
+            in_stock: "📷 現貨請用「自己拍的實品照片」，不能用官方或別人的照片。",
+            preorder: "📷 可以用官方照片，但不能用其他賣家的照片。\n🗓️ 請在商品說明寫「預計出貨時間」。",
+            proxy: "📷 可以用官方照片，但不能用其他賣家的照片。\n🗓️ 請在商品說明寫「預計出貨時間」。"
+        };
+
+        const saleTypesBox = document.getElementById("sale-types");
+        SALE_TYPES.forEach(function(type, index) {
+            const label = document.createElement("label");
+            label.className = "topic-option";
+
+            const radio = document.createElement("input");
+            radio.type = "radio";
+            radio.name = "sale-type";
+            radio.value = type.id;
+            radio.checked = index === 0;
+            radio.addEventListener("change", updateSaleTypeHint);
+
+            label.append(radio, type.name);
+            saleTypesBox.appendChild(label);
+        });
+
+        function getSelectedSaleType() {
+            const checked = saleTypesBox.querySelector("input:checked");
+            return checked ? checked.value : "in_stock";
+        }
+
+        function setSelectedSaleType(value) {
+            saleTypesBox.querySelectorAll("input").forEach(function(radio) {
+                radio.checked = radio.value === value;
+            });
+            updateSaleTypeHint();
+        }
+
+        function updateSaleTypeHint() {
+            document.getElementById("sale-type-hint").textContent =
+                SALE_TYPE_HINTS[getSelectedSaleType()];
+        }
+
+        updateSaleTypeHint();
 
 
         // ===== 開始 =====
@@ -132,7 +183,7 @@
             if (productId) {
                 const { data, error } = await db
                     .from("products")
-                    .select("id, seller_id, name, category, condition, price, description, link, images, status")
+                    .select("id, seller_id, name, category, condition, price, description, link, images, status, sale_type")
                     .eq("id", productId)
                     .eq("seller_id", currentUser.id)
                     .maybeSingle();
@@ -157,6 +208,7 @@
                 document.getElementById("price").value = data.price;
                 document.getElementById("description").value = data.description;
                 document.getElementById("link").value = data.link;
+                setSelectedSaleType(data.sale_type);
                 photos = data.images.map(function(path) { return { path: path }; });
 
                 if (data.status === "rejected") {
@@ -368,7 +420,8 @@
                 price: price,
                 description: document.getElementById("description").value.trim(),
                 link: link,
-                images: images
+                images: images,
+                sale_type: getSelectedSaleType()
             };
 
             // 2. 再存商品資料
